@@ -1,0 +1,72 @@
+SHELL := bash
+.SHELLFLAGS := -euo pipefail -c
+.DELETE_ON_ERROR:
+
+ELM := elm
+ELM_FORMAT := ./node_modules/.bin/elm-format
+ELM_TEST := ./node_modules/.bin/elm-test
+ELM_REVIEW := ./node_modules/.bin/elm-review
+TERSER := ./node_modules/.bin/terser
+
+PORT ?= 8080
+
+.DEFAULT_GOAL := default
+
+.PHONY: default help deps format lint test build run parity ci clean docker
+
+help: ## Show this help message
+	@echo "Available targets:"
+	@awk 'match($$0, /^([a-zA-Z_-]+):.*##[[:space:]]*(.*)$$/, m) { \
+		printf "  \033[1;36m%-16s\033[0m %s\n", m[1], m[2] \
+	}' $(MAKEFILE_LIST) | sort
+
+default: format lint test build  ## Run format, lint, test, and build
+
+deps: ## Install npm development dependencies
+	@echo "Installing npm dependencies..."
+	@npm ci
+
+format: ## Format Elm sources and test files
+	@echo "Formatting Elm files..."
+	@$(ELM_FORMAT) --yes src tests
+
+lint: ## Validate formatting and execute elm-review
+	@echo "Checking formatting..."
+	@$(ELM_FORMAT) --validate src tests
+	@echo "Running elm-review..."
+	@$(ELM_REVIEW)
+
+test: ## Execute Elm unit and property tests
+	@echo "Running tests..."
+	@$(ELM_TEST)
+
+build: ## Build optimised production assets in dist/
+	@echo "Building production bundle..."
+	@node scripts/generate-dict.js
+	@rm -rf dist
+	@mkdir -p dist
+	@cp -r static/* dist/
+	@$(ELM) make src/Main.elm --optimize --output=dist/elm.js
+	@$(TERSER) dist/elm.js \
+		--compress 'pure_funcs=[F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9],pure_getters,keep_fargs=false,unsafe_comps,unsafe' \
+		| $(TERSER) --mangle --output dist/elm.min.js
+	@sed -i 's/elm.js/elm.min.js/' dist/index.html
+	@rm dist/elm.js
+	@echo "Build complete in dist/"
+
+run: build ## Run local HTTP server on port $(PORT)
+	@echo "Serving dist/ on http://localhost:$(PORT)..."
+	@python3 -m http.server $(PORT) --directory dist
+
+parity: ## Run parity comparison against Haskell wordpuzzle binary
+	@echo "Running parity tests against Haskell wordpuzzle..."
+	@./scripts/parity.sh
+
+docker: ## Build and run containerised Nginx distribution
+	@docker compose up --build
+
+ci: lint test build parity ## Run full CI pipeline validation
+
+clean: ## Clean build artifacts and dependencies
+	@echo "Cleaning artifacts..."
+	@rm -rf elm-stuff dist build node_modules

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Puzzle Solver</title>
+  <meta name="description" content="Client-side word puzzle solver in Elm. Solves Nine Letter Word, Spelling Bee, and custom word puzzles.">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="elm-root"></div>
+  <noscript>
+    <div style="padding: 2rem; font-family: sans-serif; text-align: center;">
+      <h2>JavaScript Required</h2>
+      <p>The Word Puzzle Solver is a client-side Elm web application. Please enable JavaScript to run the solver.</p>
+    </div>
+  </noscript>
+  <script src="dictionary.js"></script>
+  <script src="elm.js"></script>
+  <script>
+    Elm.Main.init({
+      node: document.getElementById('elm-root'),
+      flags: window.WORDPUZZLE_DICTIONARY || null
+    });
+  </script>
+</body>
+</html>
