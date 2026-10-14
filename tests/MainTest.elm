@@ -4,12 +4,18 @@ module MainTest exposing (suite)
 Verifies that form inputs sanitise correctly and outcomes transition strictly.
 -}
 
+import Dictionary
 import Expect
 import Http
 import Main
 import Puzzle exposing (ValidationError(..))
 import Test exposing (Test, describe, test)
 import View.Results as ResultsView
+
+
+updateAll : List Main.Msg -> Main.Model -> Main.Model
+updateAll msgs initial =
+    List.foldl (\msg model -> Tuple.first (Main.update msg model)) initial msgs
 
 
 suite : Test
@@ -29,7 +35,7 @@ suite =
                     , \m -> Expect.equal ResultsView.NotSolved m.outcome
                     ]
                     model
-        , test "SetMandatory filters non-alpha and enforces single lowercase character" <|
+        , test "SetMandatory filters non-alpha and enforces lowercase char" <|
             \_ ->
                 let
                     ( initial, _ ) =
@@ -46,7 +52,9 @@ suite =
                         Main.init Nothing
 
                     ( updated, _ ) =
-                        Main.update (Main.SetOtherLetters "ABCDEFGHIJKL") initial
+                        Main.update
+                            (Main.SetOtherLetters "ABCDEFGHIJKL")
+                            initial
                 in
                 Expect.equal "abcdefgh" updated.form.otherLetters
         , test "successful submit transitions to Solved with sorted word groups" <|
@@ -55,17 +63,15 @@ suite =
                     ( initial, _ ) =
                         Main.init Nothing
 
-                    ( loaded, _ ) =
-                        Main.update (Main.GotDictionary (Ok "mitncao\nmanic\nmaniac\ncat\n")) initial
-
-                    ( withMandatory, _ ) =
-                        Main.update (Main.SetMandatory "m") loaded
-
-                    ( withLetters, _ ) =
-                        Main.update (Main.SetOtherLetters "itncao") withMandatory
-
-                    ( solved, _ ) =
-                        Main.update Main.Submit withLetters
+                    solved =
+                        updateAll
+                            [ Main.GotDictionary
+                                (Ok "mitncao\nmanic\nmaniac\ncat\n")
+                            , Main.SetMandatory "m"
+                            , Main.SetOtherLetters "itncao"
+                            , Main.Submit
+                            ]
+                            initial
                 in
                 case solved.outcome of
                     ResultsView.Solved _ groups ->
@@ -74,8 +80,11 @@ suite =
                                 List.concatMap .words groups
                         in
                         Expect.all
-                            [ \_ -> Expect.equal True (List.member "manic" allWords)
-                            , \_ -> Expect.equal True (List.member "maniac" allWords)
+                            [ \_ ->
+                                Expect.equal True (List.member "manic" allWords)
+                            , \_ ->
+                                Expect.equal True
+                                    (List.member "maniac" allWords)
                             ]
                             ()
 
@@ -87,17 +96,14 @@ suite =
                     ( initial, _ ) =
                         Main.init Nothing
 
-                    ( loaded, _ ) =
-                        Main.update (Main.GotDictionary (Ok "mitncao\nmanic\n")) initial
-
-                    ( withMand, _ ) =
-                        Main.update (Main.SetMandatory "m") loaded
-
-                    ( withLetters, _ ) =
-                        Main.update (Main.SetOtherLetters "itncao") withMand
-
-                    ( solved, _ ) =
-                        Main.update Main.Submit withLetters
+                    solved =
+                        updateAll
+                            [ Main.GotDictionary (Ok "mitncao\nmanic\n")
+                            , Main.SetMandatory "m"
+                            , Main.SetOtherLetters "itncao"
+                            , Main.Submit
+                            ]
+                            initial
 
                     ( edited, _ ) =
                         Main.update (Main.SetOtherLetters "xyz") solved
@@ -108,30 +114,33 @@ suite =
 
                     _ ->
                         Expect.fail "Results should be retained while editing"
-        , test "invalid submit reports all accumulated validation errors" <|
+        , test "invalid submit reports accumulated validation errors" <|
             \_ ->
                 let
                     ( initial, _ ) =
                         Main.init Nothing
 
-                    ( loaded, _ ) =
-                        Main.update (Main.GotDictionary (Ok "valid\n")) initial
-
-                    ( withLetters, _ ) =
-                        Main.update (Main.SetOtherLetters "a") loaded
-
-                    ( withSize, _ ) =
-                        Main.update (Main.SetSize "2") withLetters
-
-                    ( failed, _ ) =
-                        Main.update Main.Submit withSize
+                    failed =
+                        updateAll
+                            [ Main.GotDictionary (Ok "valid\n")
+                            , Main.SetOtherLetters "a"
+                            , Main.SetSize "2"
+                            , Main.Submit
+                            ]
+                            initial
                 in
                 case failed.outcome of
                     ResultsView.Invalid errs ->
                         Expect.all
-                            [ \e -> Expect.equal True (List.member (InvalidSize ( 4, 9 ) 2) e)
-                            , \e -> Expect.equal True (List.member (InvalidMandatory ' ') e)
-                            , \e -> Expect.equal True (List.member (InvalidLetters "a") e)
+                            [ \e ->
+                                Expect.equal True
+                                    (List.member (InvalidSize ( 4, 9 ) 2) e)
+                            , \e ->
+                                Expect.equal True
+                                    (List.member MissingMandatory e)
+                            , \e ->
+                                Expect.equal True
+                                    (List.member (InvalidLetters "a") e)
                             ]
                             errs
 
@@ -144,27 +153,32 @@ suite =
                         Main.init Nothing
 
                     ( failed, _ ) =
-                        Main.update (Main.GotDictionary (Err Http.NetworkError)) initial
+                        Main.update
+                            (Main.GotDictionary (Err Http.NetworkError))
+                            initial
 
                     ( retrying, _ ) =
                         Main.update Main.Retry failed
                 in
                 case retrying.dictionary of
-                    Main.Loading ->
+                    Dictionary.Loading ->
                         Expect.pass
 
                     _ ->
                         Expect.fail "Expected dictionary status to be Loading"
-        , test "initial state with dictionary flags immediately loads word list" <|
+        , test "initial state with flags immediately loads word list" <|
             \_ ->
                 let
                     ( model, cmd ) =
                         Main.init (Just "alpha\nbravo\ncharlie\n")
                 in
                 case model.dictionary of
-                    Main.Loaded words ->
+                    Dictionary.Loaded words ->
                         Expect.all
-                            [ \_ -> Expect.equal [ "alpha", "bravo", "charlie" ] words
+                            [ \_ ->
+                                Expect.equal
+                                    [ "alpha", "bravo", "charlie" ]
+                                    words
                             , \_ -> Expect.equal Cmd.none cmd
                             ]
                             ()

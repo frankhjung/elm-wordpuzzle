@@ -5,7 +5,23 @@ Provides immediate input sanitisation and field-level error indicators.
 -}
 
 import Html exposing (Html, button, div, h2, input, label, small, span, text)
-import Html.Attributes exposing (attribute, autocomplete, checked, class, classList, disabled, for, id, maxlength, name, novalidate, placeholder, type_, value)
+import Html.Attributes
+    exposing
+        ( attribute
+        , autocomplete
+        , checked
+        , class
+        , classList
+        , disabled
+        , for
+        , id
+        , maxlength
+        , name
+        , novalidate
+        , placeholder
+        , type_
+        , value
+        )
 import Html.Events exposing (onCheck, onInput, onSubmit)
 import Puzzle exposing (ValidationError(..))
 
@@ -36,6 +52,9 @@ hasMandatoryError errors =
         (\e ->
             case e of
                 InvalidMandatory _ ->
+                    True
+
+                MissingMandatory ->
                     True
 
                 MandatoryNotInLetters _ _ ->
@@ -72,7 +91,7 @@ hasSizeError errors =
                 InvalidSize _ _ ->
                     True
 
-                UnexpectedValue "size" ->
+                SizeNotANumber _ ->
                     True
 
                 _ ->
@@ -81,37 +100,65 @@ hasSizeError errors =
         errors
 
 
+viewField :
+    { id : String
+    , label : String
+    , hint : String
+    , required : Bool
+    , invalid : Bool
+    }
+    -> List (Html.Attribute msg)
+    -> Html msg
+viewField fieldConfig attrs =
+    div [ class "form-group" ]
+        [ label [ for fieldConfig.id, class "form-label" ]
+            (text fieldConfig.label
+                :: (if fieldConfig.required then
+                        [ span [ class "required-indicator" ] [ text " *" ] ]
+
+                    else
+                        []
+                   )
+            )
+        , input
+            ([ id fieldConfig.id
+             , classList
+                [ ( "form-input", True )
+                , ( "input-error", fieldConfig.invalid )
+                ]
+             , attribute "aria-invalid"
+                (if fieldConfig.invalid then
+                    "true"
+
+                 else
+                    "false"
+                )
+             ]
+                ++ attrs
+            )
+            []
+        , small [ class "form-hint" ] [ text fieldConfig.hint ]
+        ]
+
+
 view : Config msg -> Html msg
 view config =
-    let
-        mandatoryError =
-            hasMandatoryError config.errors
-
-        lettersError =
-            hasLettersError config.errors
-
-        sizeError =
-            hasSizeError config.errors
-    in
     Html.form
         [ class "puzzle-form"
         , onSubmit config.onSubmit
         , novalidate True
         ]
-        [ h2 [ class "form-title" ] [ text "Puzzle Configuration" ]
-        , div [ class "form-group" ]
-            [ label [ for "input-mandatory", class "form-label" ]
-                [ text "Mandatory Letter"
-                , span [ class "required-indicator" ] [ text " *" ]
-                ]
-            , input
-                [ id "input-mandatory"
-                , name "mandatory"
+        [ h2 [ class "form-title" ] [ text "Puzzle Input" ]
+        , div [ class "form-row" ]
+            [ viewField
+                { id = "input-mandatory"
+                , label = "Mandatory Letter"
+                , hint = "Single lowercase letter ('a' to 'z')."
+                , required = True
+                , invalid = hasMandatoryError config.errors
+                }
+                [ name "mandatory"
                 , type_ "text"
-                , classList
-                    [ ( "form-input", True )
-                    , ( "input-error", mandatoryError )
-                    ]
                 , value config.form.mandatory
                 , onInput config.onSetMandatory
                 , maxlength 1
@@ -121,31 +168,16 @@ view config =
                 , attribute "spellcheck" "false"
                 , attribute "inputmode" "text"
                 , attribute "aria-required" "true"
-                , attribute "aria-invalid"
-                    (if mandatoryError then
-                        "true"
-
-                     else
-                        "false"
-                    )
                 ]
-                []
-            , small [ class "form-hint" ]
-                [ text "Single lowercase letter that must appear in every word." ]
-            ]
-        , div [ class "form-group" ]
-            [ label [ for "input-other-letters", class "form-label" ]
-                [ text "Other Letters"
-                , span [ class "required-indicator" ] [ text " *" ]
-                ]
-            , input
-                [ id "input-other-letters"
-                , name "otherLetters"
+            , viewField
+                { id = "input-other-letters"
+                , label = "Other Letters"
+                , hint = "3 to 8 additional unique letters to complete pool."
+                , required = True
+                , invalid = hasLettersError config.errors
+                }
+                [ name "otherLetters"
                 , type_ "text"
-                , classList
-                    [ ( "form-input", True )
-                    , ( "input-error", lettersError )
-                    ]
                 , value config.form.otherLetters
                 , onInput config.onSetOtherLetters
                 , maxlength 8
@@ -155,45 +187,22 @@ view config =
                 , attribute "spellcheck" "false"
                 , attribute "inputmode" "text"
                 , attribute "aria-required" "true"
-                , attribute "aria-invalid"
-                    (if lettersError then
-                        "true"
-
-                     else
-                        "false"
-                    )
                 ]
-                []
-            , small [ class "form-hint" ]
-                [ text "3 to 8 additional unique letters to complete the pool." ]
-            ]
-        , div [ class "form-group" ]
-            [ label [ for "input-size", class "form-label" ]
-                [ text "Minimum Word Size" ]
-            , input
-                [ id "input-size"
-                , name "size"
+            , viewField
+                { id = "input-size"
+                , label = "Minimum Word Size"
+                , hint = "Length between 4 and 9."
+                , required = False
+                , invalid = hasSizeError config.errors
+                }
+                [ name "size"
                 , type_ "number"
-                , classList
-                    [ ( "form-input", True )
-                    , ( "input-error", sizeError )
-                    ]
                 , value config.form.size
                 , onInput config.onSetSize
                 , attribute "min" "4"
                 , attribute "max" "9"
                 , attribute "inputmode" "numeric"
-                , attribute "aria-invalid"
-                    (if sizeError then
-                        "true"
-
-                     else
-                        "false"
-                    )
                 ]
-                []
-            , small [ class "form-hint" ]
-                [ text "Minimum length between 4 and 9 letters (default: 4)." ]
             ]
         , div [ class "form-group-checkbox" ]
             [ label [ class "checkbox-label" ]
@@ -210,7 +219,11 @@ view config =
                     [ text "Allow repeating letters?" ]
                 ]
             , small [ class "form-hint" ]
-                [ text "Permits letters to be reused without length limit (e.g. Spelling Bee)." ]
+                [ text
+                    ("Permits letters to be reused without length limit "
+                        ++ "(e.g. Spelling Bee)."
+                    )
+                ]
             ]
         , div [ class "form-actions" ]
             [ button

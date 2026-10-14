@@ -1,5 +1,6 @@
 module Dictionary exposing
     ( Dictionary
+    , Status(..)
     , errorToString
     , fetch
     , parse
@@ -12,8 +13,18 @@ Safeguards the bitmask solver by filtering only lowercase ASCII words.
 import Http
 
 
+{-| Candidate word list representing the loaded dictionary.
+-}
 type alias Dictionary =
     List String
+
+
+{-| Lifecycle status of the asynchronous dictionary loader.
+-}
+type Status
+    = Loading
+    | Loaded Dictionary
+    | Failed Http.Error
 
 
 isValidWord : String -> Bool
@@ -21,23 +32,18 @@ isValidWord word =
     String.length word >= 4 && String.all Char.isLower word
 
 
+{-| Parses raw dictionary text into candidate words, trimming whitespace
+and filtering out non-lowercase ASCII words and words shorter than 4 letters.
+-}
 parse : String -> Dictionary
 parse content =
     String.lines content
-        |> List.filterMap
-            (\line ->
-                let
-                    word =
-                        String.trim line
-                in
-                if isValidWord word then
-                    Just word
-
-                else
-                    Nothing
-            )
+        |> List.map String.trim
+        |> List.filter isValidWord
 
 
+{-| Asynchronously fetches the dictionary text file over HTTP.
+-}
 fetch : (Result Http.Error String -> msg) -> Cmd msg
 fetch toMsg =
     Http.get
@@ -46,6 +52,8 @@ fetch toMsg =
         }
 
 
+{-| Converts an HTTP failure error into a user-facing explanation.
+-}
 errorToString : Http.Error -> String
 errorToString error =
     case error of

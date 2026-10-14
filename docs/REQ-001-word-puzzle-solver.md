@@ -47,7 +47,7 @@ strictly:
 - Applicative error accumulation reporting all validation failures together.
 - Dual visual feedback on validation failure: field-level `aria-invalid`
   borders plus an aggregated error summary.
-- Responsive layout: single column on narrow screens (< 900 px), split form
+- Responsive layout: single column on narrow screens (< 768 px), split form
   and results panes on wider screens.
 - Word chips grouped by length with bold teal highlighting for the mandatory
   character.
@@ -116,13 +116,15 @@ type Puzzle
         , mandatory : Char
         , letters : String
         , repeats : Bool
+        , poolMask : Int
         }
 
 type ValidationError
     = InvalidSize ( Int, Int ) Int
     | InvalidLetters String
-    | UnexpectedValue String
+    | SizeNotANumber String
     | InvalidMandatory Char
+    | MissingMandatory
     | MandatoryNotInLetters Char String
 
 mkPuzzle :
@@ -157,12 +159,13 @@ Dual feedback is applied on validation failure:
 
 ```elm
 type alias Model =
-    { dictionary : DictionaryStatus
+    { dictionary : Dictionary.Status
     , form : Form
     , outcome : Outcome
     }
 
-type DictionaryStatus
+-- Defined in Dictionary.elm:
+type Status
     = Loading
     | Loaded Dictionary
     | Failed Http.Error
@@ -280,7 +283,7 @@ Haskell project dictionary.
 
 #### [NEW] tests/PuzzleTest.elm
 
-Unit tests replicating all 21 test cases from the Haskell `TestSpec.hs` suite.
+Unit tests porting the Haskell `TestSpec.hs` suite (23 test cases in total).
 
 #### [NEW] tests/PuzzlePropertyTest.elm
 
@@ -346,4 +349,5 @@ make parity    # Verify identical output against the Haskell binary
    repeats on. Confirm presence of both `manic` and `maniac`.
 3. Submit invalid form (e.g. duplicate letters, out-of-range size) and verify
    dual visual feedback (field borders plus summary alert).
-4. Verify responsive reflow between desktop (> 900 px) and mobile viewports.
+4. Verify responsive reflow between desktop/tablet (>= 768 px) and mobile
+   viewports.

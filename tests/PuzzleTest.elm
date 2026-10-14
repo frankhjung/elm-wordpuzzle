@@ -1,12 +1,26 @@
 module PuzzleTest exposing (suite)
 
-{-| Direct port of the Haskell TestSpec.hs suite (21 test cases).
+{-| Direct port of the Haskell TestSpec.hs suite.
 Asserts exact semantic parity between Elm and Haskell implementations.
 -}
 
 import Expect
 import Puzzle exposing (ValidationError(..))
 import Test exposing (Test, describe, test)
+import Validation exposing (Validation)
+
+
+withPuzzle :
+    Validation ValidationError Puzzle.Puzzle
+    -> (Puzzle.Puzzle -> Expect.Expectation)
+    -> Expect.Expectation
+withPuzzle result check =
+    case result of
+        Ok p ->
+            check p
+
+        Err errs ->
+            Expect.fail ("Setup failed: " ++ Debug.toString errs)
 
 
 suite : Test
@@ -63,18 +77,15 @@ suite =
         , describe "mkPuzzle"
             [ test "valid inputs" <|
                 \_ ->
-                    case Puzzle.mkPuzzle False 4 'a' "abcd" of
-                        Ok p ->
+                    withPuzzle (Puzzle.mkPuzzle False 4 'a' "abcd") <|
+                        \puz ->
                             Expect.all
-                                [ \puz -> Expect.equal 4 (Puzzle.size puz)
-                                , \puz -> Expect.equal 'a' (Puzzle.mandatory puz)
-                                , \puz -> Expect.equal "abcd" (Puzzle.letters puz)
-                                , \puz -> Expect.equal False (Puzzle.repeats puz)
+                                [ \p -> Expect.equal 4 (Puzzle.size p)
+                                , \p -> Expect.equal 'a' (Puzzle.mandatory p)
+                                , \p -> Expect.equal "abcd" (Puzzle.letters p)
+                                , \p -> Expect.equal False (Puzzle.repeats p)
                                 ]
-                                p
-
-                        Err errs ->
-                            Expect.fail ("Expected success, got: " ++ Debug.toString errs)
+                                puz
             , test "invalid size" <|
                 \_ ->
                     Puzzle.mkPuzzle False 2 'a' "abcd"
@@ -118,10 +129,19 @@ suite =
                                 , MandatoryNotInLetters 'A' "abcd"
                                 ]
                             )
+            , test "missing mandatory whitespace" <|
+                \_ ->
+                    Puzzle.mkPuzzle False 4 ' ' "abcd"
+                        |> Expect.equal (Err [ MissingMandatory ])
+            , test "size not a number in mkPuzzleFromString" <|
+                \_ ->
+                    Puzzle.mkPuzzleFromString False "two" 'a' "abcd"
+                        |> Expect.equal (Err [ SizeNotANumber "two" ])
             , test "mandatory not in letters" <|
                 \_ ->
                     Puzzle.mkPuzzle False 4 'e' "abcd"
-                        |> Expect.equal (Err [ MandatoryNotInLetters 'e' "abcd" ])
+                        |> Expect.equal
+                            (Err [ MandatoryNotInLetters 'e' "abcd" ])
             ]
         , describe "nineLetters"
             [ test "word contains valid characters" <|
@@ -154,53 +174,52 @@ suite =
         , describe "solver length check"
             [ test "repeats allowed permits long words" <|
                 \_ ->
-                    case Puzzle.mkPuzzle True 4 'a' "abcd" of
-                        Ok p ->
+                    withPuzzle (Puzzle.mkPuzzle True 4 'a' "abcd") <|
+                        \p ->
                             Puzzle.accepts p "aaaaaaaa"
                                 |> Expect.equal True
-
-                        Err _ ->
-                            Expect.fail "Setup failed"
             , test "repeats forbidden rejects words longer than 9" <|
                 \_ ->
-                    case Puzzle.mkPuzzle False 4 'a' "abcdefghi" of
-                        Ok p ->
+                    withPuzzle (Puzzle.mkPuzzle False 4 'a' "abcdefghi") <|
+                        \p ->
                             Puzzle.accepts p "abcdefghij"
                                 |> Expect.equal False
-
-                        Err _ ->
-                            Expect.fail "Setup failed"
             ]
         , describe "solve"
             [ test "filters words in nine letters mode" <|
                 \_ ->
-                    case Puzzle.mkPuzzle False 4 'a' "abcd" of
-                        Ok p ->
+                    withPuzzle (Puzzle.mkPuzzle False 4 'a' "abcd") <|
+                        \p ->
                             let
                                 words =
-                                    [ "abcd", "bcde", "aabc", "aaaa", "abcde" ]
-
-                                groups =
-                                    Puzzle.solve p words
+                                    [ "abcd"
+                                    , "bcde"
+                                    , "aabc"
+                                    , "aaaa"
+                                    , "abcde"
+                                    ]
                             in
-                            Expect.equal [ { length = 4, words = [ "abcd" ] } ] groups
-
-                        Err _ ->
-                            Expect.fail "Setup failed"
+                            Puzzle.solve p words
+                                |> Expect.equal
+                                    [ { length = 4, words = [ "abcd" ] } ]
             , test "filters words in spelling bee mode" <|
                 \_ ->
-                    case Puzzle.mkPuzzle True 4 'a' "abcd" of
-                        Ok p ->
+                    withPuzzle (Puzzle.mkPuzzle True 4 'a' "abcd") <|
+                        \p ->
                             let
                                 words =
-                                    [ "abcd", "bcde", "aabc", "aaaa", "abcde" ]
-
-                                groups =
-                                    Puzzle.solve p words
+                                    [ "abcd"
+                                    , "bcde"
+                                    , "aabc"
+                                    , "aaaa"
+                                    , "abcde"
+                                    ]
                             in
-                            Expect.equal [ { length = 4, words = [ "aaaa", "aabc", "abcd" ] } ] groups
-
-                        Err _ ->
-                            Expect.fail "Setup failed"
+                            Puzzle.solve p words
+                                |> Expect.equal
+                                    [ { length = 4
+                                      , words = [ "aaaa", "aabc", "abcd" ]
+                                      }
+                                    ]
             ]
         ]

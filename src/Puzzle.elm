@@ -26,6 +26,20 @@ import Set
 import Validation exposing (Validation)
 
 
+{-| Minimum allowed word length and letter pool lower bound.
+-}
+minWordSize : Int
+minWordSize =
+    4
+
+
+{-| Maximum letter pool upper bound.
+-}
+maxPoolSize : Int
+maxPoolSize =
+    9
+
+
 {-| Opaque Puzzle configuration. The constructor is not exported.
 Use mkPuzzle or mkPuzzleFromString to construct a validated Puzzle.
 -}
@@ -39,43 +53,61 @@ type Puzzle
         }
 
 
+{-| Words matching the puzzle grouped by length.
+-}
 type alias WordGroup =
     { length : Int
     , words : List String
     }
 
 
+{-| Domain validation errors accumulated during puzzle construction.
+-}
 type ValidationError
     = InvalidSize ( Int, Int ) Int
     | InvalidLetters String
-    | UnexpectedValue String
+    | SizeNotANumber String
     | InvalidMandatory Char
+    | MissingMandatory
     | MandatoryNotInLetters Char String
 
 
+{-| Extracts minimum word size from a validated Puzzle.
+-}
 size : Puzzle -> Int
 size (Puzzle p) =
     p.size
 
 
+{-| Extracts the mandatory letter from a validated Puzzle.
+-}
 mandatory : Puzzle -> Char
 mandatory (Puzzle p) =
     p.mandatory
 
 
+{-| Extracts the allowed letter pool from a validated Puzzle.
+-}
 letters : Puzzle -> String
 letters (Puzzle p) =
     p.letters
 
 
+{-| Returns whether repeating letters are permitted in candidate words.
+-}
 repeats : Puzzle -> Bool
 repeats (Puzzle p) =
     p.repeats
 
 
+inSizeRange : Int -> Bool
+inSizeRange s =
+    s >= minWordSize && s <= maxPoolSize
+
+
 isSize : Int -> Bool
-isSize s =
-    s >= 4 && s <= 9
+isSize =
+    inSizeRange
 
 
 isUnique : String -> Bool
@@ -93,33 +125,35 @@ isLetters ls =
         n =
             String.length ls
     in
-    (n >= 4 && n <= 9)
+    inSizeRange n
         && String.all Char.isLower ls
         && isUnique ls
 
 
+{-| Validates integer minimum word size between 4 and 9 inclusive.
+-}
 validateSize : Int -> Validation ValidationError Int
 validateSize s =
     if isSize s then
         Validation.succeed s
 
     else
-        Validation.fail (InvalidSize ( 4, 9 ) s)
+        Validation.fail (InvalidSize ( minWordSize, maxPoolSize ) s)
 
 
 validateSizeString : String -> Validation ValidationError Int
 validateSizeString s =
-    case String.toInt s of
-        Just n ->
-            validateSize n
-
-        Nothing ->
-            Validation.fail (UnexpectedValue "size")
+    String.toInt s
+        |> Maybe.map validateSize
+        |> Maybe.withDefault (Validation.fail (SizeNotANumber s))
 
 
 validateMandatory : Char -> Validation ValidationError Char
 validateMandatory m =
-    if Char.isLower m then
+    if m == ' ' then
+        Validation.fail MissingMandatory
+
+    else if Char.isLower m then
         Validation.succeed m
 
     else
@@ -128,13 +162,18 @@ validateMandatory m =
 
 validateMandatoryInLetters : Char -> String -> Validation ValidationError ()
 validateMandatoryInLetters m ls =
-    if Char.isLower m && String.contains (String.fromChar m) ls then
+    if m == ' ' then
+        Validation.succeed ()
+
+    else if Char.isLower m && String.contains (String.fromChar m) ls then
         Validation.succeed ()
 
     else
         Validation.fail (MandatoryNotInLetters m ls)
 
 
+{-| Validates that letter pool contains 4 to 9 unique lowercase letters.
+-}
 validateLetters : String -> Validation ValidationError String
 validateLetters ls =
     if String.isEmpty ls then
@@ -147,40 +186,41 @@ validateLetters ls =
         Validation.fail (InvalidLetters ls)
 
 
+assemble :
+    Bool
+    -> Validation ValidationError Int
+    -> Char
+    -> String
+    -> Validation ValidationError Puzzle
+assemble r validSize m ls =
+    Validation.succeed
+        (\sz md l ->
+            Puzzle
+                { size = sz
+                , mandatory = md
+                , letters = l
+                , repeats = r
+                , poolMask = maskOf l
+                }
+        )
+        |> Validation.andMap validSize
+        |> Validation.andMap (validateMandatory m)
+        |> Validation.andMap (validateLetters ls)
+        |> Validation.keep (validateMandatoryInLetters m ls)
+
+
+{-| Validates puzzle parameters given an integer size constraint.
+-}
 mkPuzzle : Bool -> Int -> Char -> String -> Validation ValidationError Puzzle
-mkPuzzle r s m ls =
-    Validation.succeed
-        (\sz md l ->
-            Puzzle
-                { size = sz
-                , mandatory = md
-                , letters = l
-                , repeats = r
-                , poolMask = maskOf l
-                }
-        )
-        |> Validation.andMap (validateSize s)
-        |> Validation.andMap (validateMandatory m)
-        |> Validation.andMap (validateLetters ls)
-        |> Validation.keep (validateMandatoryInLetters m ls)
+mkPuzzle r s =
+    assemble r (validateSize s)
 
 
+{-| Validates puzzle parameters given a string size input from a form.
+-}
 mkPuzzleFromString : Bool -> String -> Char -> String -> Validation ValidationError Puzzle
-mkPuzzleFromString r s m ls =
-    Validation.succeed
-        (\sz md l ->
-            Puzzle
-                { size = sz
-                , mandatory = md
-                , letters = l
-                , repeats = r
-                , poolMask = maskOf l
-                }
-        )
-        |> Validation.andMap (validateSizeString s)
-        |> Validation.andMap (validateMandatory m)
-        |> Validation.andMap (validateLetters ls)
-        |> Validation.keep (validateMandatoryInLetters m ls)
+mkPuzzleFromString r s =
+    assemble r (validateSizeString s)
 
 
 bitOf : Char -> Int
@@ -204,24 +244,27 @@ maskOf pool =
 nineLettersWithMask : Int -> String -> Bool
 nineLettersWithMask poolMask word =
     let
-        step c ( mask, ok ) =
-            if not ok then
-                ( mask, False )
+        go used chars =
+            case chars of
+                [] ->
+                    True
 
-            else
-                let
-                    bit =
-                        bitOf c
-                in
-                if bit == 0 || Bitwise.and bit poolMask == 0 || Bitwise.and mask bit /= 0 then
-                    ( mask, False )
+                c :: rest ->
+                    let
+                        bit =
+                            Bitwise.and (bitOf c) poolMask
+                    in
+                    if bit == 0 || Bitwise.and bit used /= 0 then
+                        False
 
-                else
-                    ( Bitwise.or mask bit, True )
+                    else
+                        go (Bitwise.or used bit) rest
     in
-    Tuple.second (String.foldl step ( 0, True ) word)
+    go 0 (String.toList word)
 
 
+{-| Checks if word can be formed from pool without repeating any letter.
+-}
 nineLetters : String -> String -> Bool
 nineLetters pool word =
     nineLettersWithMask (maskOf pool) word
@@ -229,38 +272,24 @@ nineLetters pool word =
 
 spellingBeeWithMask : Int -> String -> Bool
 spellingBeeWithMask poolMask word =
-    let
-        step c ok =
-            if not ok then
-                False
-
-            else
-                let
-                    bit =
-                        bitOf c
-                in
-                bit /= 0 && Bitwise.and bit poolMask /= 0
-    in
-    String.foldl step True word
+    String.all (\c -> Bitwise.and (bitOf c) poolMask /= 0) word
 
 
+{-| Checks if word can be formed using only letters from the pool, allowing
+repeats.
+-}
 spellingBee : String -> String -> Bool
 spellingBee pool word =
     spellingBeeWithMask (maskOf pool) word
 
 
+{-| Evaluates whether a candidate word satisfies all puzzle rules.
+-}
 accepts : Puzzle -> String -> Bool
 accepts (Puzzle p) word =
     let
-        len =
-            String.length word
-
         validLength =
-            if p.repeats then
-                len >= p.size
-
-            else
-                len >= p.size && len <= 9
+            String.length word >= p.size
 
         hasMandatory =
             String.any (\c -> c == p.mandatory) word
@@ -275,25 +304,15 @@ accepts (Puzzle p) word =
     validLength && hasMandatory && matchesPool
 
 
+{-| Finds all words in the dictionary matching puzzle criteria, grouped by
+descending length and sorted alphabetically.
+-}
 solve : Puzzle -> List String -> List WordGroup
 solve puzzle dictionary =
-    let
-        matchingWords =
-            List.filter (accepts puzzle) dictionary
-                |> List.sortWith
-                    (\a b ->
-                        let
-                            cmpLen =
-                                compare (String.length b) (String.length a)
-                        in
-                        if cmpLen /= EQ then
-                            cmpLen
-
-                        else
-                            compare a b
-                    )
-    in
-    groupWords matchingWords
+    dictionary
+        |> List.filter (accepts puzzle)
+        |> List.sortBy (\w -> ( negate (String.length w), w ))
+        |> groupWords
 
 
 groupWords : List String -> List WordGroup
@@ -319,6 +338,8 @@ groupWords words =
         words
 
 
+{-| Converts domain validation errors into descriptive user feedback.
+-}
 errorToString : ValidationError -> String
 errorToString err =
     case err of
@@ -333,13 +354,16 @@ errorToString err =
         InvalidLetters ls ->
             "expected 4-9 unique lowercase letters, got " ++ ls
 
-        UnexpectedValue xs ->
-            "unexpected value " ++ xs ++ " for parameter"
+        SizeNotANumber s ->
+            "expected a whole number for size, got \"" ++ s ++ "\""
 
         InvalidMandatory c ->
-            "expected lowercase letter for mandatory, got '"
+            "expected lowercase letter ('a' to 'z') for mandatory, got '"
                 ++ String.fromChar c
                 ++ "'"
+
+        MissingMandatory ->
+            "mandatory letter is required ('a' to 'z' only)"
 
         MandatoryNotInLetters c ls ->
             "mandatory letter '"

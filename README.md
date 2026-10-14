@@ -14,6 +14,139 @@ applicative validation from the reference
 [Haskell Word Puzzle Solver](https://github.com/frankhjung/haskell-wordpuzzle).
 It runs entirely in the browser without any server backend.
 
+## Project Structure
+
+This project is a browser-only Elm app. It loads the static word list, validates
+the player input, solves the puzzle with a bitmask-based engine, and renders the
+matching words as chips.
+
+The main modules are:
+
+- `src/Main.elm`: Elm architecture entry point and app state.
+- `src/View/Form.elm`: user input controls and form actions.
+- `src/View/Results.elm`: renders the solved words.
+- `src/Dictionary.elm`: fetches and parses the dictionary file.
+- `src/Puzzle.elm`: solves the constrained word puzzle.
+- `src/Validation.elm`: validates puzzle input and collects errors.
+
+The app reads `static/dictionary.txt` at runtime, so there is no separate
+backend or service layer in the repository.
+
+## Quick Start Guide
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v20+ or v24+)
+- [Elm 0.19.1](https://guide.elm-lang.org/install/elm.html)
+- GNU Make
+
+### Installation
+
+Clone the repository and install development tooling:
+
+```bash
+git clone https://github.com/frankhjung/elm-wordpuzzle.git
+cd elm-wordpuzzle
+make deps
+```
+
+### Development Server
+
+Compile and launch the local HTTP server:
+
+```bash
+make run
+```
+
+Open your browser at `http://localhost:8080`.
+
+### Building for Production
+
+To create an optimised, minified production build in `dist/`:
+
+```bash
+make build
+```
+
+This compiles `src/Main.elm` with `--optimize`, compresses the JavaScript bundle
+with Terser, and copies all static assets.
+
+### Running with Docker
+
+To build and run the containerised Nginx distribution:
+
+```bash
+make docker
+```
+
+Open your browser at `http://localhost:8080`.
+
+## Testing and Verification
+
+The test suite includes a direct port of the Haskell test suite, property-based
+fuzz tests, and differential parity tests comparing the Elm solver directly
+against the compiled Haskell binary:
+
+```bash
+# Run unit and property fuzz tests
+make test
+
+# Verify code formatting
+make format
+
+# Run static analysis and linter
+make lint
+
+# Run differential parity tests against Haskell binary
+make parity
+
+# Execute the complete CI validation suite
+make ci
+```
+
+## Available Make Targets
+
+Run `make help` to inspect available targets:
+
+| Target | Description |
+| :--- | :--- |
+| `default` | Run format, lint, test, and build |
+| `deps` | Install npm development dependencies |
+| `format` | Format Elm sources and test files |
+| `lint` | Validate formatting and execute elm-review |
+| `test` | Execute Elm unit and property fuzz tests |
+| `build` | Build optimised production bundle in `dist/` |
+| `run` | Run local HTTP development server |
+| `parity` | Run parity comparison against Haskell binary |
+| `docker` | Build and run containerised Nginx container |
+| `ci` | Run full continuous integration pipeline |
+| `clean` | Remove build artifacts and dependencies |
+
+## Domain Glossary
+
+Key domain terms are defined in [GLOSSARY.md](GLOSSARY.md):
+
+- **Mandatory Letter**: The single letter required in every matching word.
+- **Other Letters**: Secondary letters completing the allowed pool.
+- **Letter Pool**: The full set of 4–9 allowed unique lowercase letters.
+- **Word Size**: Minimum length constraint (4 to 9 characters).
+- **Nine Letters**: Standard mode where pool letters cannot repeat.
+- **Repeats**: Mode permitting letters to repeat without length limits.
+
+## Related Word Puzzle Solver Implementations
+
+This project is part of a multi-language implementation series:
+
+- [Clojure](https://github.com/frankhjung/clojure-wordpuzzle)
+- [Flutter](https://github.com/frankhjung/flutter-wordpuzzle)
+- [Go](https://github.com/frankhjung/go-wordpuzzle)
+- [Haskell](https://github.com/frankhjung/haskell-wordpuzzle) (Reference)
+- [Java](https://github.com/frankhjung/java-wordpuzzle)
+- [Kotlin](https://github.com/frankhjung/kotlin-wordpuzzle)
+- [Lean 4](https://github.com/frankhjung/lean-wordpuzzle)
+- [Python](https://github.com/frankhjung/python-wordpuzzle)
+- [TypeScript](https://github.com/frankhjung/typescript-wordpuzzle)
+
 ## Architecture Overview
 
 ### Architectural Diagram
@@ -102,7 +235,7 @@ sequenceDiagram
   User->>Main: Launch application
   Main->>Dict: Fetch dictionary.txt (HTTP GET)
   Dict-->>Main: Parsed word list (63k words)
-  User->>Form: Enter mandatory & other letters
+  User->>Form: Configure letters, size & mode
   User->>Form: Submit form (Click or Enter)
   Form->>Main: Submit message
   Main->>Solver: Validate & solve (bitmask filtering)
@@ -110,121 +243,6 @@ sequenceDiagram
   Main->>Results: Render solution cards (lazy DOM)
   Results-->>User: Display solution chips
 ```
-
-## Quick Start Guide
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v20+ or v24+)
-- [Elm 0.19.1](https://guide.elm-lang.org/install/elm.html)
-- GNU Make
-
-### Installation
-
-Clone the repository and install development tooling:
-
-```bash
-git clone https://github.com/frankhjung/elm-wordpuzzle.git
-cd elm-wordpuzzle
-make deps
-```
-
-### Development Server
-
-Compile and launch the local HTTP server:
-
-```bash
-make run
-```
-
-Open your browser at `http://localhost:8080`.
-
-### Building for Production
-
-To create an optimised, minified production build in `dist/`:
-
-```bash
-make build
-```
-
-This compiles `src/Main.elm` with `--optimize`, compresses the JavaScript
-bundle with Terser, and copies all static assets.
-
-### Running with Docker
-
-To build and run the containerised Nginx distribution:
-
-```bash
-make docker
-```
-
-Open your browser at `http://localhost:8080`.
-
-## Testing and Verification
-
-The test suite includes a direct port of the Haskell test suite, property-based
-fuzz tests, and differential parity tests comparing the Elm solver directly
-against the compiled Haskell binary:
-
-```bash
-# Run unit and property fuzz tests
-make test
-
-# Verify code formatting
-make format
-
-# Run static analysis and linter
-make lint
-
-# Run differential parity tests against Haskell binary
-make parity
-
-# Execute the complete CI validation suite
-make ci
-```
-
-## Available Make Targets
-
-Run `make help` to inspect available targets:
-
-| Target | Description |
-| :--- | :--- |
-| `default` | Run format, lint, test, and build |
-| `deps` | Install npm development dependencies |
-| `format` | Format Elm sources and test files |
-| `lint` | Validate formatting and execute elm-review |
-| `test` | Execute Elm unit and property fuzz tests |
-| `build` | Build optimised production bundle in `dist/` |
-| `run` | Run local HTTP development server |
-| `parity` | Run parity comparison against Haskell binary |
-| `docker` | Build and run containerised Nginx container |
-| `ci` | Run full continuous integration pipeline |
-| `clean` | Remove build artifacts and dependencies |
-
-## Domain Glossary
-
-Key domain terms are defined in [GLOSSARY.md](GLOSSARY.md):
-
-- **Mandatory Letter**: The single letter required in every matching word.
-- **Other Letters**: Secondary letters completing the allowed pool.
-- **Letter Pool**: The full set of 4–9 allowed unique lowercase letters.
-- **Word Size**: Minimum length constraint (4 to 9 characters).
-- **Nine Letters**: Standard mode where pool letters cannot repeat.
-- **Repeats**: Mode permitting letters to repeat without length limits.
-
-## Related Word Puzzle Solver Implementations
-
-This project is part of a multi-language implementation series:
-
-- [Clojure](https://github.com/frankhjung/clojure-wordpuzzle)
-- [Flutter](https://github.com/frankhjung/flutter-wordpuzzle)
-- [Go](https://github.com/frankhjung/go-wordpuzzle)
-- [Haskell](https://github.com/frankhjung/haskell-wordpuzzle) (Reference)
-- [Java](https://github.com/frankhjung/java-wordpuzzle)
-- [Kotlin](https://github.com/frankhjung/kotlin-wordpuzzle)
-- [Lean 4](https://github.com/frankhjung/lean-wordpuzzle)
-- [Python](https://github.com/frankhjung/python-wordpuzzle)
-- [TypeScript](https://github.com/frankhjung/typescript-wordpuzzle)
 
 ## Licence
 

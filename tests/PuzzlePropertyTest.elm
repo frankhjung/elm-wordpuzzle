@@ -18,30 +18,17 @@ asciiLowerChar =
 
 validPool : Fuzzer ( Char, String )
 validPool =
-    Fuzz.listOfLengthBetween 4 9 asciiLowerChar
-        |> Fuzz.map
-            (\chars ->
-                let
-                    unique =
-                        Set.toList (Set.fromList chars)
+    Fuzz.map2
+        (\n shuffled ->
+            case List.take n shuffled of
+                first :: rest ->
+                    ( first, String.fromList (first :: rest) )
 
-                    filled =
-                        if List.length unique < 4 then
-                            unique ++ [ 'a', 'b', 'c', 'd' ] |> Set.fromList |> Set.toList
-
-                        else
-                            unique
-
-                    pool =
-                        List.take 9 filled
-                in
-                case pool of
-                    first :: _ ->
-                        ( first, String.fromList pool )
-
-                    [] ->
-                        ( 'a', "abcd" )
-            )
+                [] ->
+                    ( 'a', "abcd" )
+        )
+        (Fuzz.intRange 4 9)
+        (Fuzz.shuffledList (String.toList "abcdefghijklmnopqrstuvwxyz"))
 
 
 validWord : Fuzzer String
@@ -58,16 +45,24 @@ suite =
                 case Puzzle.mkPuzzle True 4 mand pool of
                     Ok p ->
                         if Puzzle.accepts p word then
-                            Expect.equal True (String.contains (String.fromChar mand) word)
+                            Expect.equal True
+                                (String.contains (String.fromChar mand) word)
 
                         else
                             Expect.pass
 
-                    Err _ ->
-                        Expect.pass
+                    Err errs ->
+                        Expect.fail
+                            ("Generator produced invalid puzzle: "
+                                ++ Debug.toString errs
+                            )
         , fuzz2 validPool validWord "repeats-off accepted words are always a subset of repeats-on" <|
             \( mand, pool ) word ->
-                case ( Puzzle.mkPuzzle False 4 mand pool, Puzzle.mkPuzzle True 4 mand pool ) of
+                case
+                    ( Puzzle.mkPuzzle False 4 mand pool
+                    , Puzzle.mkPuzzle True 4 mand pool
+                    )
+                of
                     ( Ok pOff, Ok pOn ) ->
                         if Puzzle.accepts pOff word then
                             Expect.equal True (Puzzle.accepts pOn word)
@@ -76,7 +71,7 @@ suite =
                             Expect.pass
 
                     _ ->
-                        Expect.pass
+                        Expect.fail "Generator produced invalid puzzle pair"
         , fuzz2 validPool validWord "repeats-off accepted words never exceed length 9 or contain duplicates" <|
             \( mand, pool ) word ->
                 case Puzzle.mkPuzzle False 4 mand pool of
@@ -91,13 +86,17 @@ suite =
                             in
                             Expect.all
                                 [ \w -> Expect.atMost 9 (String.length w)
-                                , \w -> Expect.equal (String.length w) uniqueCount
+                                , \w ->
+                                    Expect.equal (String.length w) uniqueCount
                                 ]
                                 word
 
                         else
                             Expect.pass
 
-                    Err _ ->
-                        Expect.pass
+                    Err errs ->
+                        Expect.fail
+                            ("Generator produced invalid puzzle: "
+                                ++ Debug.toString errs
+                            )
         ]

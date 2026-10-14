@@ -4,7 +4,7 @@ module View.Results exposing (Outcome(..), view)
 Mandatory letters are visually highlighted in teal and bold within word chips.
 -}
 
-import Dictionary exposing (Dictionary)
+import Dictionary
 import Html exposing (Html, button, div, h3, li, p, span, strong, text, ul)
 import Html.Attributes exposing (attribute, class, id, type_)
 import Html.Events exposing (onClick)
@@ -14,7 +14,7 @@ import Puzzle exposing (Puzzle, ValidationError, WordGroup)
 
 
 type alias Config msg =
-    { dictionaryStatus : Result Http.Error (Maybe Dictionary)
+    { dictionary : Dictionary.Status
     , outcome : Outcome
     , onRetry : msg
     }
@@ -29,14 +29,14 @@ type Outcome
 view : Config msg -> Html msg
 view config =
     div [ class "results-pane", attribute "aria-live" "polite" ]
-        [ case config.dictionaryStatus of
-            Err httpError ->
+        [ case config.dictionary of
+            Dictionary.Failed httpError ->
                 viewDictionaryError httpError config.onRetry
 
-            Ok Nothing ->
+            Dictionary.Loading ->
                 viewDictionaryLoading
 
-            Ok (Just _) ->
+            Dictionary.Loaded _ ->
                 viewOutcome config.outcome
         ]
 
@@ -47,7 +47,9 @@ viewDictionaryLoading =
         [ div [ class "spinner-large" ] []
         , h3 [ class "status-title" ] [ text "Loading Dictionary" ]
         , p [ class "status-desc" ]
-            [ text "Downloading and indexing candidate word list in the browser..." ]
+            [ text
+                "Downloading and indexing candidate word list in browser..."
+            ]
         ]
 
 
@@ -76,33 +78,49 @@ viewOutcome outcome =
             div [ class "status-card status-empty" ]
                 [ h3 [ class "status-title" ] [ text "Ready to Solve" ]
                 , p [ class "status-desc" ]
-                    [ text "Configure your mandatory letter and allowed letters, then press Solve." ]
+                    [ text
+                        ("Configure mandatory letter and allowed letters, "
+                            ++ "then press Solve."
+                        )
+                    ]
                 ]
 
         Invalid errors ->
             div [ class "alert alert-error", attribute "role" "alert" ]
                 [ h3 [ class "alert-title" ] [ text "Validation Errors" ]
                 , ul [ class "error-list" ]
-                    (List.map (\err -> li [] [ text (Puzzle.errorToString err) ]) errors)
+                    (List.map
+                        (\err -> li [] [ text (Puzzle.errorToString err) ])
+                        errors
+                    )
                 ]
 
         Solved puzzle groups ->
             let
                 totalCount =
-                    List.foldl (\g acc -> acc + List.length g.words) 0 groups
+                    List.sum (List.map (.words >> List.length) groups)
             in
             if totalCount == 0 then
                 div [ class "status-card status-no-results" ]
                     [ h3 [ class "status-title" ] [ text "No Words Found" ]
                     , p [ class "status-desc" ]
-                        [ text "No words in the dictionary match the specified criteria." ]
+                        [ text
+                            ("No words in dictionary match the specified "
+                                ++ "criteria."
+                            )
+                        ]
                     ]
 
             else
                 div [ class "results-container" ]
                     [ div [ class "results-header" ]
                         [ span [ class "results-count" ]
-                            [ text ("Found " ++ String.fromInt totalCount ++ " words") ]
+                            [ text
+                                ("Found "
+                                    ++ String.fromInt totalCount
+                                    ++ " words"
+                                )
+                            ]
                         ]
                     , lazy2 renderGroups (Puzzle.mandatory puzzle) groups
                     ]
@@ -132,14 +150,13 @@ renderWordGroup mand group =
 
 renderWordChip : Char -> String -> Html msg
 renderWordChip mand word =
+    let
+        m =
+            String.fromChar mand
+    in
     span [ class "word-chip" ]
-        (String.toList word
-            |> List.map
-                (\c ->
-                    if c == mand then
-                        strong [ class "char-mandatory" ] [ text (String.fromChar c) ]
-
-                    else
-                        text (String.fromChar c)
-                )
+        (String.split m word
+            |> List.map text
+            |> List.intersperse
+                (strong [ class "char-mandatory" ] [ text m ])
         )
