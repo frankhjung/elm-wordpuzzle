@@ -16,21 +16,26 @@ type alias Dictionary =
     List String
 
 
-isAsciiLower : Char -> Bool
-isAsciiLower c =
-    c >= 'a' && c <= 'z'
-
-
 isValidWord : String -> Bool
 isValidWord word =
-    String.length word >= 4 && String.all isAsciiLower word
+    String.length word >= 4 && String.all Char.isLower word
 
 
 parse : String -> Dictionary
 parse content =
     String.lines content
-        |> List.map String.trim
-        |> List.filter isValidWord
+        |> List.filterMap
+            (\line ->
+                let
+                    word =
+                        String.trim line
+                in
+                if isValidWord word then
+                    Just word
+
+                else
+                    Nothing
+            )
 
 
 fetch : (Result Http.Error String -> msg) -> Cmd msg

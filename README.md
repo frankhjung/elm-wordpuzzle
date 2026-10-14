@@ -96,7 +96,7 @@ sequenceDiagram
   participant Form as View.Form
   participant Main as Main (TEA)
   participant Dict as Dictionary
-  participant Solver as Puzzle.Solver
+  participant Solver as Puzzle
   participant Results as View.Results
 
   User->>Main: Launch application
@@ -137,7 +137,7 @@ Compile and launch the local HTTP server:
 make run
 ```
 
-Open your browser at `http://localhost:8000`.
+Open your browser at `http://localhost:8080`.
 
 ### Building for Production
 

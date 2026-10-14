@@ -83,6 +83,16 @@ hasSizeError errors =
 
 view : Config msg -> Html msg
 view config =
+    let
+        mandatoryError =
+            hasMandatoryError config.errors
+
+        lettersError =
+            hasLettersError config.errors
+
+        sizeError =
+            hasSizeError config.errors
+    in
     Html.form
         [ class "puzzle-form"
         , onSubmit config.onSubmit
@@ -100,7 +110,7 @@ view config =
                 , type_ "text"
                 , classList
                     [ ( "form-input", True )
-                    , ( "input-error", hasMandatoryError config.errors )
+                    , ( "input-error", mandatoryError )
                     ]
                 , value config.form.mandatory
                 , onInput config.onSetMandatory
@@ -112,7 +122,7 @@ view config =
                 , attribute "inputmode" "text"
                 , attribute "aria-required" "true"
                 , attribute "aria-invalid"
-                    (if hasMandatoryError config.errors then
+                    (if mandatoryError then
                         "true"
 
                      else
@@ -134,7 +144,7 @@ view config =
                 , type_ "text"
                 , classList
                     [ ( "form-input", True )
-                    , ( "input-error", hasLettersError config.errors )
+                    , ( "input-error", lettersError )
                     ]
                 , value config.form.otherLetters
                 , onInput config.onSetOtherLetters
@@ -146,7 +156,7 @@ view config =
                 , attribute "inputmode" "text"
                 , attribute "aria-required" "true"
                 , attribute "aria-invalid"
-                    (if hasLettersError config.errors then
+                    (if lettersError then
                         "true"
 
                      else
@@ -166,7 +176,7 @@ view config =
                 , type_ "number"
                 , classList
                     [ ( "form-input", True )
-                    , ( "input-error", hasSizeError config.errors )
+                    , ( "input-error", sizeError )
                     ]
                 , value config.form.size
                 , onInput config.onSetSize
@@ -174,7 +184,7 @@ view config =
                 , attribute "max" "9"
                 , attribute "inputmode" "numeric"
                 , attribute "aria-invalid"
-                    (if hasSizeError config.errors then
+                    (if sizeError then
                         "true"
 
                      else

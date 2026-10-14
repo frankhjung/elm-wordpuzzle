@@ -17,7 +17,7 @@ import Dictionary exposing (Dictionary)
 import Html exposing (Html, a, div, footer, h1, header, main_, p, text)
 import Html.Attributes exposing (class, href, rel, target)
 import Http
-import Puzzle exposing (ValidationError(..))
+import Puzzle
 import View.Form as FormView
 import View.Results as ResultsView
 
@@ -95,7 +95,7 @@ update msg model =
             let
                 cleaned =
                     String.toLower raw
-                        |> String.filter (\c -> c >= 'a' && c <= 'z')
+                        |> String.filter Char.isLower
                         |> String.left 1
 
                 currentForm =
@@ -109,7 +109,7 @@ update msg model =
             let
                 cleaned =
                     String.toLower raw
-                        |> String.filter (\c -> c >= 'a' && c <= 'z')
+                        |> String.filter Char.isLower
                         |> String.left 8
 
                 currentForm =
@@ -161,56 +161,18 @@ update msg model =
                         fullLetters =
                             model.form.mandatory ++ model.form.otherLetters
                     in
-                    case String.toInt model.form.size of
-                        Just s ->
-                            case Puzzle.mkPuzzle model.form.repeats s mandatoryChar fullLetters of
-                                Ok puzzle ->
-                                    let
-                                        groups =
-                                            Puzzle.solve puzzle dict
-                                    in
-                                    ( { model | outcome = ResultsView.Solved puzzle groups }
-                                    , Cmd.none
-                                    )
-
-                                Err errors ->
-                                    ( { model | outcome = ResultsView.Invalid errors }
-                                    , Cmd.none
-                                    )
-
-                        Nothing ->
+                    case Puzzle.mkPuzzleFromString model.form.repeats model.form.size mandatoryChar fullLetters of
+                        Ok puzzle ->
                             let
-                                sizeErr =
-                                    [ UnexpectedValue "size" ]
-
-                                mandErr =
-                                    case Puzzle.validateMandatory mandatoryChar of
-                                        Ok _ ->
-                                            []
-
-                                        Err e ->
-                                            e
-
-                                lettersErr =
-                                    case Puzzle.validateLetters fullLetters of
-                                        Ok _ ->
-                                            []
-
-                                        Err e ->
-                                            e
-
-                                mandInLettersErr =
-                                    case Puzzle.validateMandatoryInLetters mandatoryChar fullLetters of
-                                        Ok () ->
-                                            []
-
-                                        Err e ->
-                                            e
-
-                                allErrors =
-                                    sizeErr ++ mandErr ++ lettersErr ++ mandInLettersErr
+                                groups =
+                                    Puzzle.solve puzzle dict
                             in
-                            ( { model | outcome = ResultsView.Invalid allErrors }
+                            ( { model | outcome = ResultsView.Solved puzzle groups }
+                            , Cmd.none
+                            )
+
+                        Err errors ->
+                            ( { model | outcome = ResultsView.Invalid errors }
                             , Cmd.none
                             )
 

@@ -4,7 +4,8 @@ const path = require('path');
 
 const candidateBins = [
   process.env.HASKELL_BIN,
-  '/home/frank/dev/haskell/wordpuzzle/dist-newstyle/build/x86_64-linux/ghc-9.6.7/wordpuzzle-1.1.1/x/wordpuzzle/build/wordpuzzle/wordpuzzle'
+  '/home/frank/dev/haskell/wordpuzzle/dist-newstyle/build/x86_64-linux/ghc-9.6.7/wordpuzzle-1.1.1/x/wordpuzzle/build/wordpuzzle/wordpuzzle',
+  path.join(process.env.HOME || '', '.local/bin/haskell-wordpuzzle')
 ].filter(Boolean);
 
 const haskellBin = candidateBins.find(p => fs.existsSync(p));

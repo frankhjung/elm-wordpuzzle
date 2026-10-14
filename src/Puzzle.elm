@@ -7,14 +7,13 @@ module Puzzle exposing
     , letters
     , mandatory
     , mkPuzzle
+    , mkPuzzleFromString
     , nineLetters
     , repeats
     , size
     , solve
     , spellingBee
     , validateLetters
-    , validateMandatory
-    , validateMandatoryInLetters
     , validateSize
     )
 
@@ -28,7 +27,7 @@ import Validation exposing (Validation)
 
 
 {-| Opaque Puzzle configuration. The constructor is not exported.
-Use mkPuzzle to construct a validated Puzzle.
+Use mkPuzzle or mkPuzzleFromString to construct a validated Puzzle.
 -}
 type Puzzle
     = Puzzle
@@ -36,6 +35,7 @@ type Puzzle
         , mandatory : Char
         , letters : String
         , repeats : Bool
+        , poolMask : Int
         }
 
 
@@ -73,11 +73,6 @@ repeats (Puzzle p) =
     p.repeats
 
 
-isAsciiLower : Char -> Bool
-isAsciiLower c =
-    c >= 'a' && c <= 'z'
-
-
 isSize : Int -> Bool
 isSize s =
     s >= 4 && s <= 9
@@ -99,7 +94,7 @@ isLetters ls =
             String.length ls
     in
     (n >= 4 && n <= 9)
-        && String.all isAsciiLower ls
+        && String.all Char.isLower ls
         && isUnique ls
 
 
@@ -112,9 +107,19 @@ validateSize s =
         Validation.fail (InvalidSize ( 4, 9 ) s)
 
 
+validateSizeString : String -> Validation ValidationError Int
+validateSizeString s =
+    case String.toInt s of
+        Just n ->
+            validateSize n
+
+        Nothing ->
+            Validation.fail (UnexpectedValue "size")
+
+
 validateMandatory : Char -> Validation ValidationError Char
 validateMandatory m =
-    if isAsciiLower m then
+    if Char.isLower m then
         Validation.succeed m
 
     else
@@ -123,7 +128,7 @@ validateMandatory m =
 
 validateMandatoryInLetters : Char -> String -> Validation ValidationError ()
 validateMandatoryInLetters m ls =
-    if isAsciiLower m && String.contains (String.fromChar m) ls then
+    if Char.isLower m && String.contains (String.fromChar m) ls then
         Validation.succeed ()
 
     else
@@ -151,9 +156,28 @@ mkPuzzle r s m ls =
                 , mandatory = md
                 , letters = l
                 , repeats = r
+                , poolMask = maskOf l
                 }
         )
         |> Validation.andMap (validateSize s)
+        |> Validation.andMap (validateMandatory m)
+        |> Validation.andMap (validateLetters ls)
+        |> Validation.keep (validateMandatoryInLetters m ls)
+
+
+mkPuzzleFromString : Bool -> String -> Char -> String -> Validation ValidationError Puzzle
+mkPuzzleFromString r s m ls =
+    Validation.succeed
+        (\sz md l ->
+            Puzzle
+                { size = sz
+                , mandatory = md
+                , letters = l
+                , repeats = r
+                , poolMask = maskOf l
+                }
+        )
+        |> Validation.andMap (validateSizeString s)
         |> Validation.andMap (validateMandatory m)
         |> Validation.andMap (validateLetters ls)
         |> Validation.keep (validateMandatoryInLetters m ls)
@@ -177,12 +201,9 @@ maskOf pool =
     String.foldl (\c mask -> Bitwise.or mask (bitOf c)) 0 pool
 
 
-nineLetters : String -> String -> Bool
-nineLetters pool word =
+nineLettersWithMask : Int -> String -> Bool
+nineLettersWithMask poolMask word =
     let
-        poolMask =
-            maskOf pool
-
         step c ( mask, ok ) =
             if not ok then
                 ( mask, False )
@@ -192,10 +213,7 @@ nineLetters pool word =
                     bit =
                         bitOf c
                 in
-                if bit == 0 || Bitwise.and bit poolMask == 0 then
-                    ( mask, False )
-
-                else if Bitwise.and mask bit /= 0 then
+                if bit == 0 || Bitwise.and bit poolMask == 0 || Bitwise.and mask bit /= 0 then
                     ( mask, False )
 
                 else
@@ -204,12 +222,14 @@ nineLetters pool word =
     Tuple.second (String.foldl step ( 0, True ) word)
 
 
-spellingBee : String -> String -> Bool
-spellingBee pool word =
-    let
-        poolMask =
-            maskOf pool
+nineLetters : String -> String -> Bool
+nineLetters pool word =
+    nineLettersWithMask (maskOf pool) word
 
+
+spellingBeeWithMask : Int -> String -> Bool
+spellingBeeWithMask poolMask word =
+    let
         step c ok =
             if not ok then
                 False
@@ -222,6 +242,11 @@ spellingBee pool word =
                 bit /= 0 && Bitwise.and bit poolMask /= 0
     in
     String.foldl step True word
+
+
+spellingBee : String -> String -> Bool
+spellingBee pool word =
+    spellingBeeWithMask (maskOf pool) word
 
 
 accepts : Puzzle -> String -> Bool
@@ -238,14 +263,14 @@ accepts (Puzzle p) word =
                 len >= p.size && len <= 9
 
         hasMandatory =
-            String.contains (String.fromChar p.mandatory) word
+            String.any (\c -> c == p.mandatory) word
 
         matchesPool =
             if p.repeats then
-                spellingBee p.letters word
+                spellingBeeWithMask p.poolMask word
 
             else
-                nineLetters p.letters word
+                nineLettersWithMask p.poolMask word
     in
     validLength && hasMandatory && matchesPool
 
@@ -273,33 +298,25 @@ solve puzzle dictionary =
 
 groupWords : List String -> List WordGroup
 groupWords words =
-    case words of
-        [] ->
-            []
-
-        first :: rest ->
+    List.foldr
+        (\word acc ->
             let
                 len =
-                    String.length first
-
-                ( sameLen, otherLens ) =
-                    spanHelper (\w -> String.length w == len) [] rest
+                    String.length word
             in
-            { length = len, words = first :: sameLen } :: groupWords otherLens
+            case acc of
+                group :: rest ->
+                    if group.length == len then
+                        { group | words = word :: group.words } :: rest
 
+                    else
+                        { length = len, words = [ word ] } :: acc
 
-spanHelper : (a -> Bool) -> List a -> List a -> ( List a, List a )
-spanHelper predicate acc list =
-    case list of
-        [] ->
-            ( List.reverse acc, [] )
-
-        x :: xs ->
-            if predicate x then
-                spanHelper predicate (x :: acc) xs
-
-            else
-                ( List.reverse acc, list )
+                [] ->
+                    [ { length = len, words = [ word ] } ]
+        )
+        []
+        words
 
 
 errorToString : ValidationError -> String
