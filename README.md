@@ -120,6 +120,7 @@ Run `make help` to inspect available targets:
 
 - [Design Documentation](docs/design.md)
 - [Elm Quickstart Guide](docs/elm-quick-start.md)
+- [Hamming Weight / Popcount Notes](docs/hamming-weight.md)
 - [Requirements Documentation (Baseline)](docs/REQ-001-word-puzzle-solver.md)
 - [Modernisation Requests (REQ-002)](docs/REQ-002-refactor-and-modernise.md)
 - [Project Review](docs/project-review.md)

@@ -91,6 +91,20 @@ maskOf str =
     String.foldl (\c mask -> Bitwise.or mask (bitOf c)) 0 str
 
 
+{-| Counts how many bits are set in a 32-bit integer.
+
+This is a classic parallel-popcount routine (sometimes called a "Hamming
+weight" calculation). It works by repeatedly folding adjacent bit pairs, then
+nibbles, then bytes, and finally the full 32-bit word into a total count. The
+result is used to determine how many distinct characters are present in a word's
+bitmask without iterating over every bit individually.
+
+Examples:
+
+    countBits 0 == 0
+    countBits 0b10100101 == 4
+
+-}
 countBits : Int -> Int
 countBits n =
     let
