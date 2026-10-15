@@ -36,6 +36,12 @@ In the web interface, this comprises three to eight unique lowercase letters.
 The core domain specification of constraints for a word search. Comprises a
 Mandatory Letter, a Letter Pool, a Word Size, and a Repeats flag.
 
+## Remote Data
+
+A four-state sum type (`NotAsked`, `Loading`, `Failure`, `Success`) that
+models the lifecycle of asynchronous remote assets, preventing impossible
+intermediate UI states.
+
 ## Repeats
 
 A puzzle mode (such as the NYT Spelling Bee) where letters in the Letter Pool
@@ -62,6 +68,11 @@ inputs.
 
 A collection of matching puzzle solution words sharing an identical length,
 sorted alphabetically.
+
+## Word Index
+
+A length-partitioned data structure mapping word lengths to candidate words
+paired with their pre-computed 32-bit integer character bitmasks.
 
 ## Word Size
 

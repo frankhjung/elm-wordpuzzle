@@ -124,6 +124,13 @@ Run `make help` to inspect available targets:
 | `clean` | Remove build artifacts and compiler caches |
 | `distclean` | Remove all build artifacts and node_modules |
 
+## Project Documentation
+
+- [Design Documentation](docs/design.md)
+- [Elm Quickstart Guide](docs/elm-quick-start.md)
+- [Requirements Documentation](docs/REQ-001-word-puzzle-solver.md)
+- [Project Review](docs/project-review.md)
+
 ## Domain Glossary
 
 Key domain terms are defined in [GLOSSARY.md](GLOSSARY.md):
