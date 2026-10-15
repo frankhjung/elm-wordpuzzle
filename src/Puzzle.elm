@@ -254,23 +254,29 @@ maskOf pool =
 nineLettersWithMask : Int -> String -> Bool
 nineLettersWithMask poolMask word =
     let
-        go used chars =
+        check used chars =
             case chars of
                 [] ->
                     True
 
-                c :: rest ->
+                char :: remaining ->
                     let
-                        bit =
-                            Bitwise.and (bitOf c) poolMask
+                        charBit =
+                            bitOf char
+
+                        isInPool =
+                            Bitwise.and charBit poolMask /= 0
+
+                        alreadySeen =
+                            Bitwise.and charBit used /= 0
                     in
-                    if bit == 0 || Bitwise.and bit used /= 0 then
+                    if not isInPool || alreadySeen then
                         False
 
                     else
-                        go (Bitwise.or used bit) rest
+                        check (Bitwise.or used charBit) remaining
     in
-    go 0 (String.toList word)
+    check 0 (String.toList word)
 
 
 {-| Checks if word can be formed from pool without repeating any letter.
@@ -282,7 +288,11 @@ nineLetters pool word =
 
 spellingBeeWithMask : Int -> String -> Bool
 spellingBeeWithMask poolMask word =
-    String.all (\c -> Bitwise.and (bitOf c) poolMask /= 0) word
+    let
+        isInPool char =
+            Bitwise.and (bitOf char) poolMask /= 0
+    in
+    String.all isInPool word
 
 
 {-| Checks if word can be formed using only letters from the pool, allowing
@@ -301,15 +311,17 @@ accepts (Puzzle p) word =
         len =
             String.length word
     in
-    (len >= p.size)
-        && (p.repeats || len <= maxPoolSize)
-        && String.contains p.mandString word
-        && (if p.repeats then
-                spellingBeeWithMask p.poolMask word
+    if len < p.size || (not p.repeats && len > maxPoolSize) then
+        False
 
-            else
-                nineLettersWithMask p.poolMask word
-           )
+    else if not (String.contains p.mandString word) then
+        False
+
+    else if p.repeats then
+        spellingBeeWithMask p.poolMask word
+
+    else
+        nineLettersWithMask p.poolMask word
 
 
 {-| Finds all words in the dictionary matching puzzle criteria, grouped by

@@ -1,6 +1,7 @@
 module PuzzlePropertyTest exposing (suite)
 
-{-| Property-based fuzz tests verifying domain invariants across arbitrary inputs.
+{-| Property-based fuzz tests verifying domain invariants across
+arbitrary inputs.
 -}
 
 import Expect
@@ -37,11 +38,29 @@ validWord =
         |> Fuzz.map String.fromList
 
 
+validDictionary : Fuzzer (List String)
+validDictionary =
+    Fuzz.listOfLengthBetween 5 25 validWord
+
+
+isStrictlyDescending : List Int -> Bool
+isStrictlyDescending list =
+    case list of
+        a :: b :: rest ->
+            a > b && isStrictlyDescending (b :: rest)
+
+        _ ->
+            True
+
+
 suite : Test
 suite =
     describe "Puzzle Invariants (Property Tests)"
-        [ fuzz2 validPool validWord "accepted word always contains mandatory letter" <|
-            \( mand, pool ) word ->
+        [ fuzz2
+            validPool
+            validWord
+            "accepted word always contains mandatory letter"
+            (\( mand, pool ) word ->
                 case Puzzle.mkPuzzle True 4 mand pool of
                     Ok p ->
                         if Puzzle.accepts p word then
@@ -56,8 +75,12 @@ suite =
                             ("Generator produced invalid puzzle: "
                                 ++ Debug.toString errs
                             )
-        , fuzz2 validPool validWord "repeats-off accepted words are always a subset of repeats-on" <|
-            \( mand, pool ) word ->
+            )
+        , fuzz2
+            validPool
+            validWord
+            "repeats-off accepted words are always a subset of repeats-on"
+            (\( mand, pool ) word ->
                 case
                     ( Puzzle.mkPuzzle False 4 mand pool
                     , Puzzle.mkPuzzle True 4 mand pool
@@ -72,8 +95,12 @@ suite =
 
                     _ ->
                         Expect.fail "Generator produced invalid puzzle pair"
-        , fuzz2 validPool validWord "repeats-off accepted words never exceed length 9 or contain duplicates" <|
-            \( mand, pool ) word ->
+            )
+        , fuzz2
+            validPool
+            validWord
+            "repeats-off words never exceed length 9 or contain duplicates"
+            (\( mand, pool ) word ->
                 case Puzzle.mkPuzzle False 4 mand pool of
                     Ok pOff ->
                         if Puzzle.accepts pOff word then
@@ -99,4 +126,72 @@ suite =
                             ("Generator produced invalid puzzle: "
                                 ++ Debug.toString errs
                             )
+            )
+        , fuzz2
+            validPool
+            validDictionary
+            "all words returned by solve satisfy accepts"
+            (\( mand, pool ) dict ->
+                case Puzzle.mkPuzzle True 4 mand pool of
+                    Ok p ->
+                        let
+                            solvedWords =
+                                Puzzle.solve p dict
+                                    |> List.concatMap .words
+
+                            allAccepted =
+                                List.all (Puzzle.accepts p) solvedWords
+                        in
+                        Expect.equal True allAccepted
+
+                    Err errs ->
+                        Expect.fail
+                            ("Generator produced invalid puzzle: "
+                                ++ Debug.toString errs
+                            )
+            )
+        , fuzz2
+            validPool
+            validDictionary
+            "word groups from solve are ordered by strictly descending length"
+            (\( mand, pool ) dict ->
+                case Puzzle.mkPuzzle True 4 mand pool of
+                    Ok p ->
+                        let
+                            lengths =
+                                Puzzle.solve p dict
+                                    |> List.map .length
+                        in
+                        Expect.equal True (isStrictlyDescending lengths)
+
+                    Err errs ->
+                        Expect.fail
+                            ("Generator produced invalid puzzle: "
+                                ++ Debug.toString errs
+                            )
+            )
+        , fuzz2
+            validPool
+            validDictionary
+            "all words in each word group match group.length"
+            (\( mand, pool ) dict ->
+                case Puzzle.mkPuzzle True 4 mand pool of
+                    Ok p ->
+                        let
+                            groups =
+                                Puzzle.solve p dict
+
+                            validGroup g =
+                                List.all
+                                    (\w -> String.length w == g.length)
+                                    g.words
+                        in
+                        Expect.equal True (List.all validGroup groups)
+
+                    Err errs ->
+                        Expect.fail
+                            ("Generator produced invalid puzzle: "
+                                ++ Debug.toString errs
+                            )
+            )
         ]

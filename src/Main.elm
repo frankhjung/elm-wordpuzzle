@@ -1,14 +1,21 @@
 module Main exposing
-    ( Flags
-    , Model
-    , Msg(..)
-    , init
-    , main
-    , update
+    ( Model, Msg(..), Flags
+    , init, update, main
     )
 
 {-| Single-page application entry point for the Elm Word Puzzle Solver.
 Wires state management, HTTP dictionary loading, and responsive views.
+
+
+# Architecture & Types
+
+@docs Model, Msg, Flags
+
+
+# Lifecycle & Update
+
+@docs init, update, main
+
 -}
 
 import Browser
@@ -21,6 +28,8 @@ import View.Form as FormView
 import View.Results as ResultsView
 
 
+{-| Top-level application state snapshot.
+-}
 type alias Model =
     { dictionary : Dictionary.Status
     , form : FormView.Form
@@ -28,6 +37,8 @@ type alias Model =
     }
 
 
+{-| Application events driving state transitions.
+-}
 type Msg
     = GotDictionary (Result Http.Error String)
     | SetMandatory String
@@ -38,6 +49,8 @@ type Msg
     | Retry
 
 
+{-| Optional preloaded dictionary string passed at initialization.
+-}
 type alias Flags =
     Maybe String
 
@@ -55,6 +68,8 @@ initialModel =
     }
 
 
+{-| Initializes the TEA application, fetching dictionary if not preloaded.
+-}
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     case flags of
@@ -87,9 +102,12 @@ solveForm : FormView.Form -> Dictionary.Dictionary -> ResultsView.Outcome
 solveForm form dict =
     let
         mandChar =
-            String.uncons form.mandatory
-                |> Maybe.map Tuple.first
-                |> Maybe.withDefault ' '
+            case String.uncons form.mandatory of
+                Just ( char, _ ) ->
+                    char
+
+                Nothing ->
+                    ' '
 
         letters =
             form.mandatory ++ form.otherLetters
@@ -102,6 +120,8 @@ solveForm form dict =
             ResultsView.Invalid errors
 
 
+{-| Pure state transition function responding to user input and HTTP events.
+-}
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -149,7 +169,10 @@ update msg model =
                     , Cmd.none
                     )
 
-                _ ->
+                Dictionary.Loading ->
+                    ( model, Cmd.none )
+
+                Dictionary.Failed _ ->
                     ( model, Cmd.none )
 
 
@@ -218,6 +241,8 @@ view model =
         ]
 
 
+{-| Application entry point wiring TEA runtime with browser DOM.
+-}
 main : Program Flags Model Msg
 main =
     Browser.element

@@ -1,7 +1,21 @@
-module View.Form exposing (Form, view)
+module View.Form exposing
+    ( Form
+    , view
+    )
 
 {-| Accessible, responsive puzzle input form.
 Provides immediate input sanitisation and field-level error indicators.
+
+
+# Types
+
+@docs Form
+
+
+# View
+
+@docs view
+
 -}
 
 import Html exposing (Html, button, div, h2, input, label, small, span, text)
@@ -26,6 +40,8 @@ import Html.Events exposing (onCheck, onInput, onSubmit)
 import Puzzle exposing (ValidationError(..))
 
 
+{-| Form inputs holding raw user inputs before validation.
+-}
 type alias Form =
     { mandatory : String
     , otherLetters : String
@@ -46,82 +62,70 @@ type alias Config msg =
     }
 
 
-hasMandatoryError : List ValidationError -> Bool
-hasMandatoryError errors =
-    List.any
-        (\e ->
-            case e of
-                InvalidMandatory _ ->
-                    True
+affectsMandatory : ValidationError -> Bool
+affectsMandatory err =
+    case err of
+        InvalidMandatory _ ->
+            True
 
-                MissingMandatory ->
-                    True
+        MissingMandatory ->
+            True
 
-                MandatoryNotInLetters _ _ ->
-                    True
+        MandatoryNotInLetters _ _ ->
+            True
 
-                InvalidSize _ _ ->
-                    False
+        InvalidSize _ _ ->
+            False
 
-                InvalidLetters _ ->
-                    False
+        InvalidLetters _ ->
+            False
 
-                SizeNotANumber _ ->
-                    False
-        )
-        errors
+        SizeNotANumber _ ->
+            False
 
 
-hasLettersError : List ValidationError -> Bool
-hasLettersError errors =
-    List.any
-        (\e ->
-            case e of
-                InvalidLetters _ ->
-                    True
+affectsLetters : ValidationError -> Bool
+affectsLetters err =
+    case err of
+        InvalidLetters _ ->
+            True
 
-                MandatoryNotInLetters _ _ ->
-                    True
+        MandatoryNotInLetters _ _ ->
+            True
 
-                InvalidSize _ _ ->
-                    False
+        InvalidSize _ _ ->
+            False
 
-                SizeNotANumber _ ->
-                    False
+        SizeNotANumber _ ->
+            False
 
-                InvalidMandatory _ ->
-                    False
+        InvalidMandatory _ ->
+            False
 
-                MissingMandatory ->
-                    False
-        )
-        errors
+        MissingMandatory ->
+            False
 
 
-hasSizeError : List ValidationError -> Bool
-hasSizeError errors =
-    List.any
-        (\e ->
-            case e of
-                InvalidSize _ _ ->
-                    True
+affectsSize : ValidationError -> Bool
+affectsSize err =
+    case err of
+        InvalidSize _ _ ->
+            True
 
-                SizeNotANumber _ ->
-                    True
+        SizeNotANumber _ ->
+            True
 
-                InvalidLetters _ ->
-                    False
+        InvalidLetters _ ->
+            False
 
-                InvalidMandatory _ ->
-                    False
+        InvalidMandatory _ ->
+            False
 
-                MissingMandatory ->
-                    False
+        MissingMandatory ->
+            False
 
-                MandatoryNotInLetters _ _ ->
-                    False
-        )
-        errors
+        MandatoryNotInLetters _ _ ->
+            False
 
 
 viewField :
@@ -134,29 +138,32 @@ viewField :
     -> List (Html.Attribute msg)
     -> Html msg
 viewField fieldConfig attrs =
-    div [ class "form-group" ]
-        [ label [ for fieldConfig.id, class "form-label" ]
-            (text fieldConfig.label
-                :: (if fieldConfig.required then
-                        [ span [ class "required-indicator" ] [ text " *" ] ]
+    let
+        labelContent =
+            if fieldConfig.required then
+                [ text fieldConfig.label
+                , span [ class "required-indicator" ] [ text " *" ]
+                ]
 
-                    else
-                        []
-                   )
-            )
+            else
+                [ text fieldConfig.label ]
+
+        ariaInvalid =
+            if fieldConfig.invalid then
+                "true"
+
+            else
+                "false"
+    in
+    div [ class "form-group" ]
+        [ label [ for fieldConfig.id, class "form-label" ] labelContent
         , input
             ([ id fieldConfig.id
              , classList
                 [ ( "form-input", True )
                 , ( "input-error", fieldConfig.invalid )
                 ]
-             , attribute "aria-invalid"
-                (if fieldConfig.invalid then
-                    "true"
-
-                 else
-                    "false"
-                )
+             , attribute "aria-invalid" ariaInvalid
              ]
                 ++ attrs
             )
@@ -165,6 +172,8 @@ viewField fieldConfig attrs =
         ]
 
 
+{-| Renders the puzzle input form with field-level validation indicators.
+-}
 view : Config msg -> Html msg
 view config =
     Html.form
@@ -179,7 +188,7 @@ view config =
                 , label = "Mandatory Letter"
                 , hint = "Single lowercase letter ('a' to 'z')."
                 , required = True
-                , invalid = hasMandatoryError config.errors
+                , invalid = List.any affectsMandatory config.errors
                 }
                 [ name "mandatory"
                 , type_ "text"
@@ -198,7 +207,7 @@ view config =
                 , label = "Other Letters"
                 , hint = "3 to 8 additional unique letters to complete pool."
                 , required = True
-                , invalid = hasLettersError config.errors
+                , invalid = List.any affectsLetters config.errors
                 }
                 [ name "otherLetters"
                 , type_ "text"
@@ -217,7 +226,7 @@ view config =
                 , label = "Minimum Word Size"
                 , hint = "Length between 4 and 9."
                 , required = False
-                , invalid = hasSizeError config.errors
+                , invalid = List.any affectsSize config.errors
                 }
                 [ name "size"
                 , type_ "number"

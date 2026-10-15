@@ -1,7 +1,21 @@
-module View.Results exposing (Outcome(..), view)
+module View.Results exposing
+    ( Outcome(..)
+    , view
+    )
 
 {-| Responsive results view displaying solution cards grouped by word length.
 Mandatory letters are visually highlighted in teal and bold within word chips.
+
+
+# Types
+
+@docs Outcome
+
+
+# View
+
+@docs view
+
 -}
 
 import Dictionary
@@ -20,12 +34,16 @@ type alias Config msg =
     }
 
 
+{-| Solver outcome state representing the current display status.
+-}
 type Outcome
     = NotSolved
     | Invalid (List ValidationError)
     | Solved Puzzle (List WordGroup)
 
 
+{-| Renders the dictionary status or solved word groups.
+-}
 view : Config msg -> Html msg
 view config =
     div [ class "results-pane", attribute "aria-live" "polite" ]
