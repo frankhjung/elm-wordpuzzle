@@ -4,14 +4,19 @@ status: accepted
 
 # Elm Word Puzzle Solver: Implementation Plan
 
+> [!NOTE] This document specifies the baseline implementation (v0.1.0). For the
+> subsequent modernisation plan (4-state RemoteData, length-partitioned bitmask
+> indexing, and granular view memoisation), see
+> [REQ-002: Refactor and Modernise](REQ-002-refactor-and-modernise.md).
+
 ## Goal Description
 
-Build a client-side web interface for the word puzzle solver in Elm 0.19.1,
-in `/home/frank/dev/elm/wordpuzzle`.
+Build a client-side web interface for the word puzzle solver in Elm 0.19.1, in
+`/home/frank/dev/elm/wordpuzzle`.
 
 The app ports the **Haskell** solver semantics (the reference for rules and
-validation) and adopts the **Flutter** responsive user interface layout (form
-on the left, results grouped by word length on the right, mandatory letter
+validation) and adopts the **Flutter** responsive user interface layout (form on
+the left, results grouped by word length on the right, mandatory letter
 highlighted). There is no server backend. The dictionary is a static text file
 fetched once by the browser, and puzzle matching runs client-side in Elm.
 
@@ -45,10 +50,10 @@ strictly:
 
 - Pure Elm 0.19.1 client-side single-page application.
 - Applicative error accumulation reporting all validation failures together.
-- Dual visual feedback on validation failure: field-level `aria-invalid`
-  borders plus an aggregated error summary.
-- Responsive layout: single column on narrow screens (< 768 px), split form
-  and results panes on wider screens.
+- Dual visual feedback on validation failure: field-level `aria-invalid` borders
+  plus an aggregated error summary.
+- Responsive layout: single column on narrow screens (< 768 px), split form and
+  results panes on wider screens.
 - Word chips grouped by length with bold teal highlighting for the mandatory
   character.
 - Offline resilience via static asset caching in the browser.
@@ -59,22 +64,23 @@ strictly:
 - External dictionary definition lookups (e.g. Wiktionary links).
 - Click-to-copy interaction on word chips.
 - Shareable URL hashes or query parameter state synchronisation.
-- Web Worker background thread execution (standard Elm execution is fast
-  enough for 63k words).
+- Web Worker background thread execution (standard Elm execution is fast enough
+  for 63k words).
 - Multi-dictionary selection or runtime upload of custom word lists.
 
 ## User Review and System Constraints
 
-> [!IMPORTANT]
-> **Network access is required for initial setup.** `npm install` and the
-> initial `elm make` execution (to cache standard packages into `~/.elm`)
-> require network connectivity.
+### [!IMPORTANT] **Network access is required for initial setup.**
 
-> [!IMPORTANT]
-> **Read-only access to sibling repositories.** The sandbox requires read access
-> to `/home/frank/dev/haskell/wordpuzzle/dictionary` to copy the Debian
-> `wamerican` dictionary and access to `~/.local/bin/wordpuzzle` for solver
-> parity verification.
+`npm install` and the initial `elm make` execution (to cache standard packages
+into `~/.elm`) require network connectivity.
+
+### [!IMPORTANT] **Read-only access to sibling repositories.**
+
+The sandbox requires read access to
+`/home/frank/dev/haskell/wordpuzzle/dictionary` to copy the Debian `wamerican`
+dictionary and access to `~/.local/bin/wordpuzzle` for solver parity
+verification.
 
 ## Architecture
 
@@ -82,7 +88,7 @@ strictly:
 flowchart LR
   subgraph Browser
     HTML["index.html + style.css"] --> JS["elm.js (compiled)"]
-    DICT[("dictionary.txt")] -->|"Http.get"| JS
+    DICT[("dictionary")] -->|"Http.get"| JS
   end
   subgraph "Elm modules (src/)"
     Main["Main: Model, Msg, update, view"]
@@ -204,16 +210,14 @@ To guarantee zero UI latency when editing form inputs, the results pane is
 wrapped with `Html.Lazy.lazy`, ensuring virtual DOM reconciliation of result
 chips only executes when the solved puzzle outcome changes.
 
----
-
 ## Proposed Changes
 
 ### Project Scaffold
 
 #### [NEW] elm.json
 
-Application manifest for Elm 0.19.1 with direct dependencies:
-`elm/browser`, `elm/core`, `elm/html`, and `elm/http`.
+Application manifest for Elm 0.19.1 with direct dependencies: `elm/browser`,
+`elm/core`, `elm/html`, and `elm/http`.
 
 #### [NEW] package.json
 
@@ -227,8 +231,6 @@ Ignore `elm-stuff/`, `node_modules/`, and `dist/`.
 
 BSD-3-Clause licence matching the Haskell solver repository.
 
----
-
 ### Domain Layer
 
 #### [NEW] src/Validation.elm
@@ -238,15 +240,13 @@ Applicative error accumulator (`Validation e a = Result (List e) a`) with
 
 #### [NEW] src/Puzzle.elm
 
-Domain model, smart constructor, bitmask solver, word grouping, and error
-string formatting.
+Domain model, smart constructor, bitmask solver, word grouping, and error string
+formatting.
 
 #### [NEW] src/Dictionary.elm
 
-Dictionary parser and HTTP loader using `dictionary.txt`. Filters out words with
+Dictionary parser and HTTP loader using `dictionary`. Filters out words with
 non-lowercase ASCII characters during parse time to safeguard the 26-bit mask.
-
----
 
 ### UI Layer
 
@@ -272,12 +272,10 @@ Minimal HTML5 entry point mounting the compiled Elm application.
 
 Responsive CSS grid with teal accent theme, dark mode support, and focus rings.
 
-#### [NEW] static/dictionary.txt
+#### [NEW] static/dictionary
 
 Debian `wamerican` word list (63,031 words, 589,474 bytes) identical to the
 Haskell project dictionary.
-
----
 
 ### Tests and Verification
 
@@ -304,8 +302,6 @@ State transition tests for `update` handling form edits, retries, and solves.
 Differential testing script asserting identical outputs between the Elm solver
 worker and `~/.local/bin/wordpuzzle`.
 
----
-
 ### Tooling and Documentation
 
 #### [NEW] Makefile
@@ -313,9 +309,10 @@ worker and `~/.local/bin/wordpuzzle`.
 Defines standard targets: `deps`, `format`, `lint`, `test`, `build`, `run`,
 `parity`, and `ci`.
 
-#### [NEW] Dockerfile and docker-compose.yml
+#### [REMOVED] Dockerfile and docker-compose.yml
 
-Containerised multi-stage build serving static assets via Nginx on port 8080.
+Containerised multi-stage build serving static assets via Nginx on port 8080
+(subsequently removed to simplify repository tooling).
 
 #### [NEW] GLOSSARY.md
 
@@ -324,8 +321,6 @@ Domain glossary defining core concepts in Australian English.
 #### [NEW] README.md and docs/design.md
 
 Documentation of architecture, usage, and design trade-offs.
-
----
 
 ## Verification Plan
 

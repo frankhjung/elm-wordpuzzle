@@ -227,7 +227,7 @@ view config =
                     , value config.form.mandatory
                     , onInput config.onSetMandatory
                     , maxlength 1
-                    , placeholder "e.g. m"
+                    , placeholder "e.g. c"
                     , autocomplete False
                     , attribute "autocapitalize" "none"
                     , attribute "spellcheck" "false"
@@ -246,7 +246,7 @@ view config =
                     , value config.form.otherLetters
                     , onInput config.onSetOtherLetters
                     , maxlength 8
-                    , placeholder "e.g. itncao"
+                    , placeholder "e.g. adevrsoi"
                     , autocomplete False
                     , attribute "autocapitalize" "none"
                     , attribute "spellcheck" "false"

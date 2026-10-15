@@ -2,10 +2,10 @@
 
 ## 1. Project Overview
 
-The Elm Word Puzzle Solver is a client-side single-page web application
-compiled with Elm 0.19.1. It provides a modern browser user interface for
-solving constraint-based letter puzzles including Nine Letter Word and
-NYT Spelling Bee games.
+The Elm Word Puzzle Solver is a client-side single-page web application compiled
+with Elm 0.19.1. It provides a modern browser user interface for solving
+constraint-based letter puzzles including Nine Letter Word and NYT Spelling Bee
+games.
 
 The architecture directly ports the domain semantics, bitmask solver, and
 applicative error accumulation from the reference Haskell command-line
@@ -16,30 +16,33 @@ implementation
 
 The application is structured into four distinct layers:
 
-1. **Domain Layer (`Puzzle.elm`, `Validation.elm`):**
-   Pure functional core containing domain data models, smart constructors, and
-   low-level 26-bit mask matching algorithms. Contains no HTML or HTTP
-   dependencies.
-2. **Infrastructure Layer (`Dictionary.elm`):**
-   Handles asynchronous HTTP retrieval of the candidate word list and
-   pre-filters non-ASCII or short tokens.
-3. **Application State Layer (`Main.elm`):**
-   Standard Elm Architecture (`Browser.element`) coordinating runtime state,
-   messages, user actions, and component composition.
+1. **Domain Layer (`Puzzle.elm`, `Validation.elm`):** Pure functional core
+   containing opaque domain models (`Puzzle`), smart constructors (`mkPuzzle`),
+   applicative error accumulation (`Validation`), and two-tier bitmask matching
+   algorithms. Contains no HTML or HTTP dependencies.
+2. **Infrastructure Layer (`Dictionary.elm`):** Handles asynchronous HTTP
+   retrieval or preloaded flag initialisation of the candidate word list,
+   pre-filters non-ASCII or short tokens, and builds a length-partitioned index
+   (`WordIndex = Dict Int (List IndexedWord)`) with pre-computed 32-bit integer
+   bitmasks and popcounts. Models asset lifecycle with a 4-state `RemoteData`
+   sum type.
+3. **Application State Layer (`Main.elm`):** Standard Elm Architecture
+   (`Browser.element`) coordinating runtime state, messages, user actions, and
+   component composition.
 4. **Presentation Layer (`View/Form.elm`, `View/Results.elm`, `style.css`):**
    Accessible, responsive HTML views providing dual validation feedback and
-   lazy virtual DOM rendering.
+   granular `Html.Lazy.lazy2` virtual DOM rendering on individual cards.
 
 ```mermaid
 flowchart TD
-  U[User Browser] --> HTML[index.html & style.css]
-  HTML --> M[Main.elm]
-  M --> VF[View/Form.elm]
-  M --> VR[View/Results.elm]
-  M --> D[Dictionary.elm]
-  M --> P[Puzzle.elm]
-  P --> V[Validation.elm]
-  D --> TXT[(static/dictionary.txt)]
+    U[User Browser] --> HTML[index.html & style.css]
+    HTML --> M[Main.elm]
+    M --> VF[View/Form.elm]
+    M --> VR[View/Results.elm]
+    M --> D[Dictionary.elm]
+    M --> P[Puzzle.elm]
+    P --> V[Validation.elm]
+    D --> TXT[(static/dictionary)]
 ```
 
 ## 3. Design Decisions and Trade-offs
@@ -48,22 +51,23 @@ flowchart TD
 
 - **Decision:** Run all puzzle solving logic directly inside the user's browser
   without an intermediate backend API.
-- **Rationale:** The Debian `wamerican` dictionary contains 63,031 words
-  (589 KB uncompressed, ~167 KB gzipped). Downloading and parsing this file
-  takes less than 100 milliseconds on broadband connections. Running the
-  filtering client-side eliminates server hosting costs, prevents latency on
-  form submission, and enables complete offline execution.
+- **Rationale:** The Debian `wamerican` dictionary contains 63,031 words (589 KB
+  uncompressed, ~167 KB gzipped). Downloading and parsing this file takes less
+  than 100 milliseconds on broadband connections. Running the filtering
+  client-side eliminates server hosting costs, prevents latency on form
+  submission, and enables complete offline execution.
 
-### 3.2 26-Bit Mask Matching
+### 3.2 Length-Partitioned 32-Bit Bitmask Indexing
 
-- **Decision:** Port Haskell's bitwise left-fold algorithms for letter pool
-  verification.
+- **Decision:** Pre-compute 32-bit integer character bitmasks partitioned by
+  word length during dictionary ingestion (`Dict Int (List IndexedWord)`).
 - **Rationale:** Evaluating 63,000 words against string contains or list set
-  lookups requires noticeable CPU time. By encoding letters `'a'` to `'z'` as
-  bit positions `0` to `25` inside integer bitmasks, word validation executes
-  via primitive bitwise `AND` and `OR` operations in single-digit nanoseconds.
-  JavaScript bitwise operators treat numbers as 32-bit signed integers, which
-  natively accommodates the 26 lowercase English letters without allocation.
+  lookups requires noticeable CPU time. By pre-partitioning words by length and
+  encoding letters `'a'` to `'z'` as bit positions `0` to `25` inside 32-bit
+  integers, candidate validation executes via primitive bitwise `AND` and `OR`
+  operations in single-digit nanoseconds. Candidates with lengths outside the
+  puzzle's minimum word size (or above 9 in exact multiset mode) are pruned
+  instantly by skipping irrelevant dictionary length buckets.
 
 ### 3.3 Applicative Error Accumulation
 
@@ -73,13 +77,22 @@ flowchart TD
   characters, and supply non-alphabetical mandatory letters should see all
   corrective requirements at once rather than facing sequential re-submissions.
 
-### 3.4 Lazy Rendering of Solution Words
+### 3.4 Granular Lazy Memoisation of Result Cards
 
-- **Decision:** Wrap the results rendering pipeline in `Html.Lazy.lazy2`.
+- **Decision:** Wrap each length-partitioned result card in `Html.Lazy.lazy2`.
 - **Rationale:** Large word searches (such as 7 letters in Spelling Bee mode)
-  can generate several hundred DOM elements. Without lazy rendering, every
-  keystroke typed into any input field would trigger re-diffing of all solution
-  word chips. `Html.Lazy` guarantees zero UI latency during form typing.
+  can generate several hundred DOM elements. By memoising individual word cards
+  (`lazy2 viewWordCard group.length group.words`), virtual DOM diffing is
+  bypassed entirely for unchanged buckets during state updates, maintaining
+  smooth 60 FPS interactions.
+
+### 3.5 Four-State Remote Asset Lifecycle
+
+- **Decision:** Represent dictionary loading via a four-state `RemoteData` sum
+  type (`NotAsked`, `Loading`, `Failure Http.Error`, `Success WordIndex`).
+- **Rationale:** Eliminates indeterminate intermediate UI states, handles
+  network timeouts and failures gracefully with retry mechanisms, and prevents
+  solver evaluation against uninitialised word indices.
 
 ## 4. Invariants
 

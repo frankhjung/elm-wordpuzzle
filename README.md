@@ -22,15 +22,17 @@ matching words as chips.
 
 The main modules are:
 
-- `src/Main.elm`: Elm architecture entry point and app state.
-- `src/View/Form.elm`: user input controls and form actions.
-- `src/View/Results.elm`: renders the solved words.
-- `src/Dictionary.elm`: fetches and parses the dictionary file.
-- `src/Puzzle.elm`: solves the constrained word puzzle.
-- `src/Validation.elm`: validates puzzle input and collects errors.
+- `src/Main.elm`: Elm architecture entry point, flags, and application state.
+- `src/View/Form.elm`: accessible user input controls and form validation.
+- `src/View/Results.elm`: granular lazy card rendering of solved words.
+- `src/Dictionary.elm`: 4-state RemoteData loader and length-partitioned 32-bit
+  bitmask index (`WordIndex`).
+- `src/Puzzle.elm`: opaque domain model, two-tier bitmask solver, and word
+  grouping.
+- `src/Validation.elm`: applicative validation and error accumulation.
 
-The app reads `static/dictionary.txt` at runtime, so there is no separate
-backend or service layer in the repository.
+The application preloads `static/dictionary.js` via initialisation flags, with
+fallback to asynchronous HTTP retrieval of `static/dictionary`.
 
 ## Quick Start Guide
 
@@ -38,7 +40,7 @@ backend or service layer in the repository.
 
 - [Node.js](https://nodejs.org/) (v20+ or v24+)
 - [Elm 0.19.1](https://guide.elm-lang.org/install/elm.html)
-- GNU Make
+- [GNU Make](https://www.gnu.org/software/make/)
 
 ### Installation
 
@@ -71,21 +73,12 @@ make build
 This compiles `src/Main.elm` with `--optimize`, compresses the JavaScript bundle
 with Terser, and copies all static assets.
 
-### Running with Docker
-
-To build and run the containerised Nginx distribution:
-
-```bash
-make docker
-```
-
-Open your browser at `http://localhost:8080`.
-
 ## Testing and Verification
 
-The test suite includes a direct port of the Haskell test suite, property-based
-fuzz tests, and differential parity tests comparing the Elm solver directly
-against the compiled Haskell binary:
+The test suite consists of 51 automated tests, including a port of the Haskell
+test suite, state machine tests, dictionary index tests, property-based fuzz
+tests, and differential parity tests comparing the Elm solver directly against
+the compiled Haskell binary:
 
 ```bash
 # Run unit and property fuzz tests
@@ -108,27 +101,27 @@ make ci
 
 Run `make help` to inspect available targets:
 
-| Target | Description |
-| :--- | :--- |
-| `default` | Run format, check, lint, test, and build |
-| `deps` | Install npm development dependencies |
-| `format` | Format Elm sources and test files |
-| `check` | Type-check Elm sources and validate formatting |
-| `lint` | Validate formatting and execute elm-review |
-| `test` | Execute Elm unit and property fuzz tests |
-| `build` | Build optimised production bundle in `dist/` |
-| `run` | Run local HTTP development server |
-| `parity` | Run parity comparison against Haskell binary |
-| `docker` | Build and run containerised Nginx container |
-| `ci` | Run full continuous integration pipeline |
-| `clean` | Remove build artifacts and compiler caches |
-| `distclean` | Remove all build artifacts and node_modules |
+| Target      | Description                                    |
+| :---------- | :--------------------------------------------- |
+| `default`   | Run format, check, lint, test, and build       |
+| `deps`      | Install npm development dependencies           |
+| `format`    | Format Elm sources and test files              |
+| `check`     | Type-check Elm sources and validate formatting |
+| `lint`      | Validate formatting and execute elm-review     |
+| `test`      | Execute Elm unit and property fuzz tests       |
+| `build`     | Build optimised production bundle in `dist/`   |
+| `run`       | Run local HTTP development server              |
+| `parity`    | Run parity comparison against Haskell binary   |
+| `ci`        | Run full continuous integration pipeline       |
+| `clean`     | Remove build artifacts and compiler caches     |
+| `distclean` | Remove all build artifacts and node_modules    |
 
 ## Project Documentation
 
 - [Design Documentation](docs/design.md)
 - [Elm Quickstart Guide](docs/elm-quick-start.md)
-- [Requirements Documentation](docs/REQ-001-word-puzzle-solver.md)
+- [Requirements Documentation (Baseline)](docs/REQ-001-word-puzzle-solver.md)
+- [Modernisation Requests (REQ-002)](docs/REQ-002-refactor-and-modernise.md)
 - [Project Review](docs/project-review.md)
 
 ## Domain Glossary
@@ -162,95 +155,95 @@ This project is part of a multi-language implementation series:
 
 ```mermaid
 flowchart TB
-  subgraph Host["Static Hosting (Nginx / Web Server)"]
-    SRV["HTTP Server (Port 8080)"]
-    ASSET["Static Assets: index.html, style.css, dictionary.txt"]
-    SRV --> ASSET
-  end
-
-  subgraph Browser["User Browser Runtime"]
-    DOM["DOM Event / User Input"]
-
-    subgraph TEA["The Elm Architecture (Main.elm)"]
-      INIT["init : Flags -> (Model, Cmd Msg)"]
-      UPDATE["update : Msg -> Model -> (Model, Cmd Msg)"]
-      VIEW["view : Model -> Html Msg"]
+    subgraph Host["Static Hosting (Nginx / Web Server)"]
+        SRV["HTTP Server (Port 8080)"]
+        ASSET["Static Assets: index.html, style.css, dictionary"]
+        SRV --> ASSET
     end
 
-    subgraph Presentation["Presentation Layer (src/View/)"]
-      FORM["View.Form (Input Controls)"]
-      RESULTS["View.Results (Lazy Chip Rendering)"]
+    subgraph Browser["User Browser Runtime"]
+        DOM["DOM Event / User Input"]
+
+        subgraph TEA["The Elm Architecture (Main.elm)"]
+            INIT["init : Flags -> (Model, Cmd Msg)"]
+            UPDATE["update : Msg -> Model -> (Model, Cmd Msg)"]
+            VIEW["view : Model -> Html Msg"]
+        end
+
+        subgraph Presentation["Presentation Layer (src/View/)"]
+            FORM["View.Form (Input Controls)"]
+            RESULTS["View.Results (Lazy Chip Rendering)"]
+        end
+
+        subgraph Infrastructure["Infrastructure Layer"]
+            DICT["Dictionary.elm (HTTP Loader & Parser)"]
+        end
+
+        subgraph Domain["Domain Layer (Pure Functional Core)"]
+            PUZZLE["Puzzle.elm (26-Bit Mask Solver)"]
+            VAL["Validation.elm (Applicative Error Accumulator)"]
+        end
     end
 
-    subgraph Infrastructure["Infrastructure Layer"]
-      DICT["Dictionary.elm (HTTP Loader & Parser)"]
-    end
-
-    subgraph Domain["Domain Layer (Pure Functional Core)"]
-      PUZZLE["Puzzle.elm (26-Bit Mask Solver)"]
-      VAL["Validation.elm (Applicative Error Accumulator)"]
-    end
-  end
-
-  ASSET -.->|"Http.get"| DICT
-  DOM -->|"User Input"| FORM
-  FORM -->|"Msg"| UPDATE
-  UPDATE -->|"State Change"| VIEW
-  VIEW --> FORM
-  VIEW --> RESULTS
-  UPDATE -->|"Solve / Filter"| PUZZLE
-  UPDATE -->|"Fetch Words"| DICT
-  PUZZLE --> VAL
-  RESULTS -->|"Render DOM"| DOM
+    ASSET -.->|"Http.get"| DICT
+    DOM -->|"User Input"| FORM
+    FORM -->|"Msg"| UPDATE
+    UPDATE -->|"State Change"| VIEW
+    VIEW --> FORM
+    VIEW --> RESULTS
+    UPDATE -->|"Solve / Filter"| PUZZLE
+    UPDATE -->|"Fetch Words"| DICT
+    PUZZLE --> VAL
+    RESULTS -->|"Render DOM"| DOM
 ```
 
 ### Component Diagram
 
 ```mermaid
 flowchart LR
-  U[User Browser]
+    U[User Browser]
 
-  subgraph WebApp[Elm Web Application]
-    M[Main.elm]
-    F[View/Form.elm]
-    R[View/Results.elm]
-    P[Puzzle.elm]
-    V[Validation.elm]
-    D[Dictionary.elm]
-    T[(static/dictionary.txt)]
-  end
+    subgraph WebApp[Elm Web Application]
+        M[Main.elm]
+        F[View/Form.elm]
+        R[View/Results.elm]
+        P[Puzzle.elm]
+        V[Validation.elm]
+        D[Dictionary.elm]
+        T[(static/dictionary)]
+    end
 
-  U --> M
-  M --> F
-  M --> R
-  M --> D
-  M --> P
-  P --> V
-  D --> T
+    U --> M
+    M --> F
+    M --> R
+    M --> D
+    M --> P
+    P --> V
+    D --> T
 ```
 
 ### Sequence Diagram
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  actor User as User
-  participant Form as View.Form
-  participant Main as Main (TEA)
-  participant Dict as Dictionary
-  participant Solver as Puzzle
-  participant Results as View.Results
+    autonumber
+    actor User as User
+    participant Form as View.Form
+    participant Main as Main (TEA)
+    participant Dict as Dictionary
+    participant Solver as Puzzle
+    participant Results as View.Results
 
-  User->>Main: Launch application
-  Main->>Dict: Fetch dictionary.txt (HTTP GET)
-  Dict-->>Main: Parsed word list (63k words)
-  User->>Form: Configure letters, size & mode
-  User->>Form: Submit form (Click or Enter)
-  Form->>Main: Submit message
-  Main->>Solver: Validate & solve (bitmask filtering)
-  Solver-->>Main: Grouped & sorted solutions
-  Main->>Results: Render solution cards (lazy DOM)
-  Results-->>User: Display solution chips
+    User->>Main: Launch application
+    Main->>Dict: Fetch dictionary (HTTP GET)
+    Dict-->>Main: Parsed word list (63k words)
+    User->>Form: Configure letters, size & mode
+    User->>Form: Submit form (Click or Enter)
+    Form->>Main: Submit message
+    Main->>Solver: Validate & solve (bitmask filtering)
+    Solver-->>Main: Grouped & sorted solutions
+    Main->>Results: Render solution cards (lazy DOM)
+    Results-->>User: Display solution chips
 ```
 
 ## Licence

@@ -17,7 +17,7 @@ PORT ?= 8080
 .DEFAULT_GOAL := default
 
 .PHONY: default help deps format check lint test build run parity ci clean
-.PHONY: distclean docker
+.PHONY: distclean
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -71,9 +71,6 @@ run: build ## Run local HTTP server on port $(PORT)
 parity: ## Run parity comparison against Haskell wordpuzzle binary
 	@echo "Running parity tests against Haskell wordpuzzle..."
 	@./scripts/parity.sh
-
-docker: ## Build and run containerised Nginx distribution
-	@docker compose up --build
 
 ci: lint test build parity ## Run full CI pipeline validation
 

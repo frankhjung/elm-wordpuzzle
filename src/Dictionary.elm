@@ -191,7 +191,7 @@ wordsOfLength len idx =
 fetch : (Result Http.Error String -> msg) -> Cmd msg
 fetch toMsg =
     Http.get
-        { url = "dictionary.txt"
+        { url = "dictionary"
         , expect = Http.expectString toMsg
         }
 

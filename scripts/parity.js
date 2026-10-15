@@ -19,7 +19,7 @@ const workerJs = path.join(__dirname, '../elm-stuff/parity-worker.js');
 execFileSync('elm', ['make', 'tests/ParityWorker.elm', '--output=' + workerJs], { stdio: 'inherit' });
 
 const { Elm } = require(workerJs);
-const dictionary = fs.readFileSync(path.join(__dirname, '../static/dictionary.txt'), 'utf8');
+const dictionary = fs.readFileSync(path.join(__dirname, '../static/dictionary'), 'utf8');
 
 function solveElm(size, mandatory, letters, repeats) {
   return new Promise((resolve) => {
@@ -33,7 +33,7 @@ function solveElm(size, mandatory, letters, repeats) {
 }
 
 function solveHaskell(size, mandatory, letters, repeats) {
-  const args = ['-s', String(size), '-m', mandatory, '-l', letters, '-d', path.join(__dirname, '../static/dictionary.txt')];
+  const args = ['-s', String(size), '-m', mandatory, '-l', letters, '-d', path.join(__dirname, '../static/dictionary')];
   if (repeats) {
     args.push('-r');
   }

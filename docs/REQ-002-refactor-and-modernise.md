@@ -1,3 +1,7 @@
+---
+status: completed
+---
+
 # Change Request Specification: Modernisation of `elm-wordpuzzle`
 
 This Change Request (CR) document organises the recommendations from the
@@ -9,15 +13,15 @@ fine-grained view memoisation, and robust lifecycle state machines.
 
 ## Priority Summary Matrix
 
-| Change Request ID | Priority | Subsystem / Domain | Target Objective |
-| :--- | :--- | :--- | :--- |
-| **CR-01** | High | Data Lifecycle & Assets | Refine `Dictionary.Status` to a 4-state `RemoteData` sum type in `Dictionary.elm`. |
-| **CR-02** | High | Domain Invariants | Retain generalised 4–9 pool in `Puzzle.elm`; presets rejected. |
-| **CR-03** | High | Algorithmic Core | Implement length-partitioned 32-bit bitmask index `Dict Int (List IndexedWord)`. |
-| **CR-04** | Medium | View Layer & UI | Deepen `Html.Lazy` memoisation down to individual length-partitioned cards. |
-| **CR-05** | Medium | Accessibility & Forms | Preserve explicit submit solving; enhance keyboard submission and ARIA roles. |
-| **CR-06** | Baseline | Quality Assurance | Baseline verified; expand property-based fuzz tests to invariant boundaries. |
-| **CR-07** | Baseline | CI/CD & Build Pipeline | Baseline verified; add `NoDebug.Log` and recursion rules to `ReviewConfig.elm`. |
+| CR | Priority | Status | Subsystem | Target Objective |
+| :--- | :--- | :--- | :--- | :--- |
+| **CR-01** | High | Completed | Data Lifecycle | 4-state `RemoteData` sum type in `Dictionary.elm`. |
+| **CR-02** | High | Completed | Domain Invariants | Generalised 4–9 pool; presets rejected. |
+| **CR-03** | High | Completed | Algorithmic Core | Length-partitioned bitmask index `WordIndex`. |
+| **CR-04** | Medium | Completed | View Layer & UI | Deepen `Html.Lazy` memoisation to cards. |
+| **CR-05** | Medium | Completed | Accessibility | Explicit submit; keyboard navigation and ARIA. |
+| **CR-06** | Baseline | Completed | Quality Assurance | Expanded property fuzz tests asserting invariants. |
+| **CR-07** | Baseline | Completed | CI/CD Pipeline | Static verification via `elm-review` and Make. |
 
 ## High Priority
 

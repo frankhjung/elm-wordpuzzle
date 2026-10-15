@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const txtPath = path.join(__dirname, '../static/dictionary.txt');
+const txtPath = path.join(__dirname, '../static/dictionary');
 const jsPath = path.join(__dirname, '../static/dictionary.js');
 
 const content = fs.readFileSync(txtPath, 'utf8');
