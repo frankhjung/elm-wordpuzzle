@@ -98,7 +98,7 @@ viewOutcome outcome =
         Solved puzzle groups ->
             let
                 totalCount =
-                    List.sum (List.map (.words >> List.length) groups)
+                    List.foldl (\g acc -> acc + List.length g.words) 0 groups
             in
             if totalCount == 0 then
                 div [ class "status-card status-no-results" ]
@@ -128,12 +128,16 @@ viewOutcome outcome =
 
 renderGroups : Char -> List WordGroup -> Html msg
 renderGroups mand groups =
+    let
+        mandStr =
+            String.fromChar mand
+    in
     div [ class "word-groups-list" ]
-        (List.map (renderWordGroup mand) groups)
+        (List.map (renderWordGroup mandStr) groups)
 
 
-renderWordGroup : Char -> WordGroup -> Html msg
-renderWordGroup mand group =
+renderWordGroup : String -> WordGroup -> Html msg
+renderWordGroup mandStr group =
     div [ class "word-group-card" ]
         [ h3 [ class "word-group-title" ]
             [ text
@@ -144,19 +148,15 @@ renderWordGroup mand group =
                 )
             ]
         , div [ class "chips-container" ]
-            (List.map (renderWordChip mand) group.words)
+            (List.map (renderWordChip mandStr) group.words)
         ]
 
 
-renderWordChip : Char -> String -> Html msg
-renderWordChip mand word =
-    let
-        m =
-            String.fromChar mand
-    in
+renderWordChip : String -> String -> Html msg
+renderWordChip mandStr word =
     span [ class "word-chip" ]
-        (String.split m word
+        (String.split mandStr word
             |> List.map text
             |> List.intersperse
-                (strong [ class "char-mandatory" ] [ text m ])
+                (strong [ class "char-mandatory" ] [ text mandStr ])
         )

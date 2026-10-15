@@ -1,13 +1,27 @@
 module Validation exposing
     ( Validation
-    , andMap
-    , fail
-    , keep
-    , succeed
+    , succeed, fail
+    , andMap, keep
     )
 
 {-| Applicative validation accumulating all errors in a list.
-Mirrors Data.Validation from Haskell.
+Mirrors `Data.Validation` from Haskell.
+
+
+# Types
+
+@docs Validation
+
+
+# Constructors
+
+@docs succeed, fail
+
+
+# Combinators
+
+@docs andMap, keep
+
 -}
 
 
@@ -33,7 +47,7 @@ fail err =
 
 
 {-| Sequence validation contexts, applying a wrapped function to a wrapped
-argument while accumulating all errors.
+argument while accumulating all errors in sequence order.
 -}
 andMap : Validation err a -> Validation err (a -> b) -> Validation err b
 andMap valA valFn =
@@ -44,10 +58,10 @@ andMap valA valFn =
         ( Err errs1, Err errs2 ) ->
             Err (errs1 ++ errs2)
 
-        ( Err errs, _ ) ->
+        ( Err errs, Ok _ ) ->
             Err errs
 
-        ( _, Err errs ) ->
+        ( Ok _, Err errs ) ->
             Err errs
 
 
@@ -56,4 +70,15 @@ the primary validated value while accumulating any check errors.
 -}
 keep : Validation err () -> Validation err a -> Validation err a
 keep check valA =
-    andMap check (Result.map always valA)
+    case ( valA, check ) of
+        ( Ok a, Ok () ) ->
+            Ok a
+
+        ( Err errs1, Err errs2 ) ->
+            Err (errs1 ++ errs2)
+
+        ( Err errs, Ok () ) ->
+            Err errs
+
+        ( Ok _, Err errs ) ->
+            Err errs

@@ -1,13 +1,27 @@
 module Dictionary exposing
-    ( Dictionary
-    , Status(..)
-    , errorToString
-    , fetch
+    ( Dictionary, Status(..)
     , parse
+    , fetch, errorToString
     )
 
 {-| Dictionary parsing and asynchronous HTTP fetching.
 Safeguards the bitmask solver by filtering only lowercase ASCII words.
+
+
+# Types
+
+@docs Dictionary, Status
+
+
+# Parsing
+
+@docs parse
+
+
+# HTTP Effects
+
+@docs fetch, errorToString
+
 -}
 
 import Http

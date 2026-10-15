@@ -166,7 +166,10 @@ view model =
                 ResultsView.Invalid errs ->
                     errs
 
-                _ ->
+                ResultsView.NotSolved ->
+                    []
+
+                ResultsView.Solved _ _ ->
                     []
 
         isDictLoading =

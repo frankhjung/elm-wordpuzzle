@@ -1,24 +1,33 @@
 module Puzzle exposing
-    ( Puzzle
-    , ValidationError(..)
-    , WordGroup
-    , accepts
-    , errorToString
-    , letters
-    , mandatory
-    , mkPuzzle
-    , mkPuzzleFromString
-    , nineLetters
-    , repeats
-    , size
-    , solve
-    , spellingBee
-    , validateLetters
-    , validateSize
+    ( Puzzle, WordGroup, ValidationError(..)
+    , mkPuzzle, mkPuzzleFromString, size, mandatory, letters, repeats
+    , validateSize, validateLetters, errorToString
+    , accepts, solve, nineLetters, spellingBee
     )
 
 {-| Word puzzle core domain model, validators, and bitmask solver.
-Port of Haskell WordPuzzle module.
+Port of Haskell `WordPuzzle` module.
+
+
+# Types
+
+@docs Puzzle, WordGroup, ValidationError
+
+
+# Construction & Accessors
+
+@docs mkPuzzle, mkPuzzleFromString, size, mandatory, letters, repeats
+
+
+# Validation
+
+@docs validateSize, validateLetters, errorToString
+
+
+# Solving
+
+@docs accepts, solve, nineLetters, spellingBee
+
 -}
 
 import Bitwise
@@ -47,6 +56,7 @@ type Puzzle
     = Puzzle
         { size : Int
         , mandatory : Char
+        , mandString : String
         , letters : String
         , repeats : Bool
         , poolMask : Int
@@ -105,11 +115,6 @@ inSizeRange s =
     s >= minWordSize && s <= maxPoolSize
 
 
-isSize : Int -> Bool
-isSize =
-    inSizeRange
-
-
 isUnique : String -> Bool
 isUnique str =
     let
@@ -121,11 +126,7 @@ isUnique str =
 
 isLetters : String -> Bool
 isLetters ls =
-    let
-        n =
-            String.length ls
-    in
-    inSizeRange n
+    inSizeRange (String.length ls)
         && String.all Char.isLower ls
         && isUnique ls
 
@@ -134,7 +135,7 @@ isLetters ls =
 -}
 validateSize : Int -> Validation ValidationError Int
 validateSize s =
-    if isSize s then
+    if inSizeRange s then
         Validation.succeed s
 
     else
@@ -143,9 +144,12 @@ validateSize s =
 
 validateSizeString : String -> Validation ValidationError Int
 validateSizeString s =
-    String.toInt s
-        |> Maybe.map validateSize
-        |> Maybe.withDefault (Validation.fail (SizeNotANumber s))
+    case String.toInt s of
+        Just n ->
+            validateSize n
+
+        Nothing ->
+            Validation.fail (SizeNotANumber s)
 
 
 validateMandatory : Char -> Validation ValidationError Char
@@ -198,6 +202,7 @@ assemble r validSize m ls =
             Puzzle
                 { size = sz
                 , mandatory = md
+                , mandString = String.fromChar md
                 , letters = l
                 , repeats = r
                 , poolMask = maskOf l
@@ -218,7 +223,12 @@ mkPuzzle r s =
 
 {-| Validates puzzle parameters given a string size input from a form.
 -}
-mkPuzzleFromString : Bool -> String -> Char -> String -> Validation ValidationError Puzzle
+mkPuzzleFromString :
+    Bool
+    -> String
+    -> Char
+    -> String
+    -> Validation ValidationError Puzzle
 mkPuzzleFromString r s =
     assemble r (validateSizeString s)
 
@@ -288,20 +298,18 @@ spellingBee pool word =
 accepts : Puzzle -> String -> Bool
 accepts (Puzzle p) word =
     let
-        validLength =
-            String.length word >= p.size
-
-        hasMandatory =
-            String.any (\c -> c == p.mandatory) word
-
-        matchesPool =
-            if p.repeats then
+        len =
+            String.length word
+    in
+    (len >= p.size)
+        && (p.repeats || len <= maxPoolSize)
+        && String.contains p.mandString word
+        && (if p.repeats then
                 spellingBeeWithMask p.poolMask word
 
             else
                 nineLettersWithMask p.poolMask word
-    in
-    validLength && hasMandatory && matchesPool
+           )
 
 
 {-| Finds all words in the dictionary matching puzzle criteria, grouped by

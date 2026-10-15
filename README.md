@@ -91,8 +91,8 @@ against the compiled Haskell binary:
 # Run unit and property fuzz tests
 make test
 
-# Verify code formatting
-make format
+# Verify code formatting and type-check sources
+make check
 
 # Run static analysis and linter
 make lint
@@ -110,9 +110,10 @@ Run `make help` to inspect available targets:
 
 | Target | Description |
 | :--- | :--- |
-| `default` | Run format, lint, test, and build |
+| `default` | Run format, check, lint, test, and build |
 | `deps` | Install npm development dependencies |
 | `format` | Format Elm sources and test files |
+| `check` | Type-check Elm sources and validate formatting |
 | `lint` | Validate formatting and execute elm-review |
 | `test` | Execute Elm unit and property fuzz tests |
 | `build` | Build optimised production bundle in `dist/` |
@@ -120,7 +121,8 @@ Run `make help` to inspect available targets:
 | `parity` | Run parity comparison against Haskell binary |
 | `docker` | Build and run containerised Nginx container |
 | `ci` | Run full continuous integration pipeline |
-| `clean` | Remove build artifacts and dependencies |
+| `clean` | Remove build artifacts and compiler caches |
+| `distclean` | Remove all build artifacts and node_modules |
 
 ## Domain Glossary
 

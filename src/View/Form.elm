@@ -60,7 +60,13 @@ hasMandatoryError errors =
                 MandatoryNotInLetters _ _ ->
                     True
 
-                _ ->
+                InvalidSize _ _ ->
+                    False
+
+                InvalidLetters _ ->
+                    False
+
+                SizeNotANumber _ ->
                     False
         )
         errors
@@ -77,7 +83,16 @@ hasLettersError errors =
                 MandatoryNotInLetters _ _ ->
                     True
 
-                _ ->
+                InvalidSize _ _ ->
+                    False
+
+                SizeNotANumber _ ->
+                    False
+
+                InvalidMandatory _ ->
+                    False
+
+                MissingMandatory ->
                     False
         )
         errors
@@ -94,7 +109,16 @@ hasSizeError errors =
                 SizeNotANumber _ ->
                     True
 
-                _ ->
+                InvalidLetters _ ->
+                    False
+
+                InvalidMandatory _ ->
+                    False
+
+                MissingMandatory ->
+                    False
+
+                MandatoryNotInLetters _ _ ->
                     False
         )
         errors
