@@ -57,13 +57,8 @@ type alias Flags =
 
 initialModel : Model
 initialModel =
-    { dictionary = Dictionary.Loading
-    , form =
-        { mandatory = ""
-        , otherLetters = ""
-        , size = "4"
-        , repeats = True
-        }
+    { dictionary = Dictionary.NotAsked
+    , form = FormView.initialForm
     , outcome = ResultsView.NotSolved
     }
 
@@ -75,13 +70,13 @@ init flags =
     case flags of
         Just content ->
             ( { initialModel
-                | dictionary = Dictionary.Loaded (Dictionary.parse content)
+                | dictionary = Dictionary.Success (Dictionary.parse content)
               }
             , Cmd.none
             )
 
         Nothing ->
-            ( initialModel
+            ( { initialModel | dictionary = Dictionary.Loading }
             , Dictionary.fetch GotDictionary
             )
 
@@ -127,13 +122,13 @@ update msg model =
     case msg of
         GotDictionary (Ok content) ->
             ( { model
-                | dictionary = Dictionary.Loaded (Dictionary.parse content)
+                | dictionary = Dictionary.Success (Dictionary.parse content)
               }
             , Cmd.none
             )
 
         GotDictionary (Err error) ->
-            ( { model | dictionary = Dictionary.Failed error }
+            ( { model | dictionary = Dictionary.Failure error }
             , Cmd.none
             )
 
@@ -164,15 +159,18 @@ update msg model =
 
         Submit ->
             case model.dictionary of
-                Dictionary.Loaded dict ->
+                Dictionary.Success dict ->
                     ( { model | outcome = solveForm model.form dict }
                     , Cmd.none
                     )
 
+                Dictionary.NotAsked ->
+                    ( model, Cmd.none )
+
                 Dictionary.Loading ->
                     ( model, Cmd.none )
 
-                Dictionary.Failed _ ->
+                Dictionary.Failure _ ->
                     ( model, Cmd.none )
 
 

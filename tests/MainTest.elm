@@ -173,16 +173,16 @@ suite =
                         Main.init (Just "alpha\nbravo\ncharlie\n")
                 in
                 case model.dictionary of
-                    Dictionary.Loaded words ->
+                    Dictionary.Success idx ->
                         Expect.all
                             [ \_ ->
                                 Expect.equal
                                     [ "alpha", "bravo", "charlie" ]
-                                    words
+                                    (Dictionary.words idx)
                             , \_ -> Expect.equal Cmd.none cmd
                             ]
                             ()
 
                     _ ->
-                        Expect.fail "Expected dictionary to be Loaded immediately"
+                        Expect.fail "Expected dictionary to be Success immediately"
         ]

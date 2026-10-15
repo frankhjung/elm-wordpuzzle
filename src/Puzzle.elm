@@ -2,7 +2,7 @@ module Puzzle exposing
     ( Puzzle, WordGroup, ValidationError(..)
     , mkPuzzle, mkPuzzleFromString, size, mandatory, letters, repeats
     , validateSize, validateLetters, errorToString
-    , accepts, solve, nineLetters, spellingBee
+    , accepts, solve, solveWords, nineLetters, spellingBee
     )
 
 {-| Word puzzle core domain model, validators, and bitmask solver.
@@ -26,11 +26,13 @@ Port of Haskell `WordPuzzle` module.
 
 # Solving
 
-@docs accepts, solve, nineLetters, spellingBee
+@docs accepts, solve, solveWords, nineLetters, spellingBee
 
 -}
 
 import Bitwise
+import Dict
+import Dictionary exposing (WordIndex)
 import Set
 import Validation exposing (Validation)
 
@@ -57,6 +59,7 @@ type Puzzle
         { size : Int
         , mandatory : Char
         , mandString : String
+        , mandMask : Int
         , letters : String
         , repeats : Bool
         , poolMask : Int
@@ -203,6 +206,7 @@ assemble r validSize m ls =
                 { size = sz
                 , mandatory = md
                 , mandString = String.fromChar md
+                , mandMask = bitOf md
                 , letters = l
                 , repeats = r
                 , poolMask = maskOf l
@@ -324,38 +328,76 @@ accepts (Puzzle p) word =
         nineLettersWithMask p.poolMask word
 
 
-{-| Finds all words in the dictionary matching puzzle criteria, grouped by
-descending length and sorted alphabetically.
+{-| Finds all words in the length-partitioned dictionary index matching
+puzzle criteria, grouped by descending length and sorted alphabetically.
+
+Evaluates Spelling Bee queries in O(1) bitwise operations per candidate and
+applies a two-tier filter for Nine-Letter Target mode.
+
 -}
-solve : Puzzle -> List String -> List WordGroup
-solve puzzle dictionary =
-    dictionary
-        |> List.filter (accepts puzzle)
-        |> List.sortBy (\w -> ( negate (String.length w), w ))
-        |> groupWords
+solve : Puzzle -> WordIndex -> List WordGroup
+solve (Puzzle p) index =
+    let
+        minLen =
+            p.size
+
+        maxLen =
+            if p.repeats then
+                1000
+
+            else
+                min maxPoolSize (String.length p.letters)
+
+        isMatchingWord =
+            if p.repeats then
+                \entry ->
+                    Bitwise.and entry.mask p.poolMask
+                        == entry.mask
+                        && Bitwise.and entry.mask p.mandMask
+                        /= 0
+
+            else
+                \entry ->
+                    Bitwise.and entry.mask p.poolMask
+                        == entry.mask
+                        && Bitwise.and entry.mask p.mandMask
+                        /= 0
+                        && entry.popcount
+                        == String.length entry.word
+
+        filterBucket len entries =
+            if len < minLen || len > maxLen then
+                []
+
+            else
+                List.filter isMatchingWord entries
+                    |> List.map .word
+    in
+    Dict.toList index
+        |> List.filterMap
+            (\( len, entries ) ->
+                let
+                    matchedWords =
+                        filterBucket len entries
+                in
+                if List.isEmpty matchedWords then
+                    Nothing
+
+                else
+                    Just
+                        { length = len
+                        , words = List.sort matchedWords
+                        }
+            )
+        |> List.sortBy (\group -> negate group.length)
 
 
-groupWords : List String -> List WordGroup
-groupWords words =
-    List.foldr
-        (\word acc ->
-            let
-                len =
-                    String.length word
-            in
-            case acc of
-                group :: rest ->
-                    if group.length == len then
-                        { group | words = word :: group.words } :: rest
-
-                    else
-                        { length = len, words = [ word ] } :: acc
-
-                [] ->
-                    [ { length = len, words = [ word ] } ]
-        )
-        []
-        words
+{-| Finds all matching words from a flat list of strings.
+Useful for property testing and CLI parity verification.
+-}
+solveWords : Puzzle -> List String -> List WordGroup
+solveWords puzzle rawWords =
+    solve puzzle (Dictionary.fromWords rawWords)
 
 
 {-| Converts domain validation errors into descriptive user feedback.

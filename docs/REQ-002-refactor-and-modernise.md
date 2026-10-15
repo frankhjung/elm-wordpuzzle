@@ -12,7 +12,7 @@ fine-grained view memoisation, and robust lifecycle state machines.
 | Change Request ID | Priority | Subsystem / Domain | Target Objective |
 | :--- | :--- | :--- | :--- |
 | **CR-01** | High | Data Lifecycle & Assets | Refine `Dictionary.Status` to a 4-state `RemoteData` sum type in `Dictionary.elm`. |
-| **CR-02** | High | Domain Invariants | Retain generalised 4–9 pool in `Puzzle.elm`; model Target/Spelling Bee presets. |
+| **CR-02** | High | Domain Invariants | Retain generalised 4–9 pool in `Puzzle.elm`; presets rejected. |
 | **CR-03** | High | Algorithmic Core | Implement length-partitioned 32-bit bitmask index `Dict Int (List IndexedWord)`. |
 | **CR-04** | Medium | View Layer & UI | Deepen `Html.Lazy` memoisation down to individual length-partitioned cards. |
 | **CR-05** | Medium | Accessibility & Forms | Preserve explicit submit solving; enhance keyboard submission and ARIA roles. |
@@ -67,21 +67,25 @@ for deferred or multi-dictionary selection.
   dispatch.
 - The compiled bundle remains under 50 KB gzipped.
 
-### CR-02: Domain Model Invariant Preservation and Game Mode Presets
+### CR-02: Domain Model Invariant Preservation
 
 - **Subsystem:** Domain Layer
-- **Impacted Modules:** `Puzzle.elm`, `View/Form.elm`
+- **Impacted Modules:** `Puzzle.elm`
 - **Cross-Repository References:** Functional type safety idioms and invariant
   verification highlighted in `haskell-wordpuzzle` and `GLOSSARY.md`.
 
 #### CR-02: Problem Description
 
 The architectural review proposed locking the domain to strictly 9 letters for
-Target mode and 7 letters for Spelling Bee mode while removing the configurable
-minimum word size. However, the existing implementation, `REQ-001`, and
-`GLOSSARY.md` support a generalised letter pool of 4–9 unique characters and
+NineLetter mode and 7 letters for Spelling Bee mode while removing the
+configurable minimum word size. However, the existing implementation, `REQ-001`,
+and `GLOSSARY.md` support a generalised letter pool of 4–9 unique characters and
 configurable word size (4–9) matching the Haskell CLI reference. Hardcoding
 fixed sizes would break existing test suites and feature parity.
+
+Additionally, an intermediate proposal to introduce game mode presets in the
+domain and user interface was rejected: presets do not add meaningful value,
+unnecessarily complicate the codebase, and clutter the user interface.
 
 #### CR-02: Proposed Solution
 
@@ -91,11 +95,8 @@ fixed sizes would break existing test suites and feature parity.
    - Mandatory letter: single character present in the letter pool.
    - Repeats mode: boolean flag (`nineLetters` exact multiset vs `spellingBee`
      arbitrary repetition).
-2. Enhance `Puzzle.elm` and `View/Form.elm` with game mode presets:
-   - **Target Nine-Letter Preset:** 9-letter pool, minimum word size 4, repeats
-     disabled.
-   - **Spelling Bee Preset:** 7-letter pool, minimum word size 4, repeats
-     enabled.
+2. Reject mode presets: keep the domain types and UI focused strictly on the
+   four essential inputs (mandatory letter, other letters, word size, repeats).
 3. Keep constructor opaque (`mkPuzzle`) returning applicative `Validation (List
    ValidationError) Puzzle`, preventing invalid instances from existing at
    runtime.
@@ -104,8 +105,7 @@ fixed sizes would break existing test suites and feature parity.
 
 - Smart constructor `mkPuzzle` enforces all boundary rules and accumulates
   errors.
-- Target (9-letter) and Spelling Bee (7-letter) presets populate the form with a
-  single click while allowing custom pool configurations (4–9 letters).
+- The form interface remains uncluttered without redundant preset controls.
 - Full backward compatibility with the existing test suite in
   `tests/PuzzlePropertyTest.elm` is preserved.
 
@@ -151,7 +151,7 @@ introduce unnecessary CPU overhead and garbage collection pressure.
    (B_w \ \& \ 2^{\text{Char.toCode}(c_{\text{centre}}) - 97} \neq 0)
    $$
 
-4. **Target Nine-Letter Solving:** Skip buckets where `length < puzzle.size` or
+4. **NineLetter Solving:** Skip buckets where `length < puzzle.size` or
    `length > 9`. Use the bitmask as an initial broad-phase filter, then verify
    character multiplicity against pool frequency for surviving candidates.
 
@@ -161,7 +161,7 @@ introduce unnecessary CPU overhead and garbage collection pressure.
 - Spelling Bee mode executes entirely via bitwise operations without string
   traversal.
 - Total solve time remains under 10 ms for the full 63,000-word dictionary.
-- Mathematical invariant holds: Target mode results form a strict subset of
+- Mathematical invariant holds: NineLetter mode results form a strict subset of
   Spelling Bee results for identical letter pools.
 
 ## Medium Priority
@@ -223,8 +223,8 @@ result counts to assistive technologies without visual clutter.
    - Form controls grouped with clear `fieldset` / `legend` or `role="group"`.
    - Mandatory letter input distinctly identified with
      `aria-label="Mandatory letter"`.
-   - Results pane connected to `aria-live="polite"` announcing word counts
-     upon solution completion.
+   - Results pane connected to `aria-live="polite"` announcing word counts upon
+     solution completion.
 3. Verify keyboard navigation allows full operation without pointing devices.
 
 #### CR-05: Acceptance Criteria

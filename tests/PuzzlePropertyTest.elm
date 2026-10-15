@@ -1,9 +1,11 @@
 module PuzzlePropertyTest exposing (suite)
 
 {-| Property-based fuzz tests verifying domain invariants across
-arbitrary inputs.
+arbitrary inputs and asserting parity between string solving and
+length-partitioned bitmask indexing.
 -}
 
+import Dictionary
 import Expect
 import Fuzz exposing (Fuzzer)
 import Puzzle
@@ -130,13 +132,13 @@ suite =
         , fuzz2
             validPool
             validDictionary
-            "all words returned by solve satisfy accepts"
+            "all words returned by solveWords satisfy accepts"
             (\( mand, pool ) dict ->
                 case Puzzle.mkPuzzle True 4 mand pool of
                     Ok p ->
                         let
                             solvedWords =
-                                Puzzle.solve p dict
+                                Puzzle.solveWords p dict
                                     |> List.concatMap .words
 
                             allAccepted =
@@ -153,13 +155,13 @@ suite =
         , fuzz2
             validPool
             validDictionary
-            "word groups from solve are ordered by strictly descending length"
+            "word groups from solveWords are ordered by strictly descending length"
             (\( mand, pool ) dict ->
                 case Puzzle.mkPuzzle True 4 mand pool of
                     Ok p ->
                         let
                             lengths =
-                                Puzzle.solve p dict
+                                Puzzle.solveWords p dict
                                     |> List.map .length
                         in
                         Expect.equal True (isStrictlyDescending lengths)
@@ -179,7 +181,7 @@ suite =
                     Ok p ->
                         let
                             groups =
-                                Puzzle.solve p dict
+                                Puzzle.solveWords p dict
 
                             validGroup g =
                                 List.all
@@ -193,5 +195,57 @@ suite =
                             ("Generator produced invalid puzzle: "
                                 ++ Debug.toString errs
                             )
+            )
+        , fuzz2
+            validPool
+            validDictionary
+            "solve on WordIndex produces identical output to solveWords"
+            (\( mand, pool ) dict ->
+                case Puzzle.mkPuzzle True 4 mand pool of
+                    Ok p ->
+                        let
+                            fromList =
+                                Puzzle.solveWords p dict
+
+                            fromIndex =
+                                Puzzle.solve p (Dictionary.fromWords dict)
+                        in
+                        Expect.equal fromList fromIndex
+
+                    Err errs ->
+                        Expect.fail
+                            ("Generator produced invalid puzzle: "
+                                ++ Debug.toString errs
+                            )
+            )
+        , fuzz2
+            validPool
+            validDictionary
+            "Target mode solved words are always a subset of Spelling Bee solved words"
+            (\( mand, pool ) dict ->
+                case
+                    ( Puzzle.mkPuzzle False 4 mand pool
+                    , Puzzle.mkPuzzle True 4 mand pool
+                    )
+                of
+                    ( Ok targetP, Ok beeP ) ->
+                        let
+                            idx =
+                                Dictionary.fromWords dict
+
+                            targetWords =
+                                Puzzle.solve targetP idx
+                                    |> List.concatMap .words
+                                    |> Set.fromList
+
+                            beeWords =
+                                Puzzle.solve beeP idx
+                                    |> List.concatMap .words
+                                    |> Set.fromList
+                        in
+                        Expect.equal True (Set.diff targetWords beeWords |> Set.isEmpty)
+
+                    _ ->
+                        Expect.fail "Generator produced invalid puzzle pair"
             )
         ]

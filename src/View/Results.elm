@@ -48,14 +48,26 @@ view : Config msg -> Html msg
 view config =
     div [ class "results-pane", attribute "aria-live" "polite" ]
         [ case config.dictionary of
-            Dictionary.Failed httpError ->
-                viewDictionaryError httpError config.onRetry
+            Dictionary.NotAsked ->
+                viewDictionaryNotAsked
 
             Dictionary.Loading ->
                 viewDictionaryLoading
 
-            Dictionary.Loaded _ ->
+            Dictionary.Failure httpError ->
+                viewDictionaryError httpError config.onRetry
+
+            Dictionary.Success _ ->
                 viewOutcome config.outcome
+        ]
+
+
+viewDictionaryNotAsked : Html msg
+viewDictionaryNotAsked =
+    div [ class "status-card status-empty" ]
+        [ h3 [ class "status-title" ] [ text "Dictionary Ready" ]
+        , p [ class "status-desc" ]
+            [ text "Dictionary will load upon initialization." ]
         ]
 
 
@@ -151,7 +163,12 @@ renderGroups mand groups =
             String.fromChar mand
     in
     div [ class "word-groups-list" ]
-        (List.map (renderWordGroup mandStr) groups)
+        (List.map (viewWordGroupCard mandStr) groups)
+
+
+viewWordGroupCard : String -> WordGroup -> Html msg
+viewWordGroupCard mandStr group =
+    lazy2 renderWordGroup mandStr group
 
 
 renderWordGroup : String -> WordGroup -> Html msg

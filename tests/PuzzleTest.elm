@@ -199,7 +199,7 @@ suite =
                                     , "abcde"
                                     ]
                             in
-                            Puzzle.solve p words
+                            Puzzle.solveWords p words
                                 |> Expect.equal
                                     [ { length = 4, words = [ "abcd" ] } ]
             , test "filters words in spelling bee mode" <|
@@ -215,7 +215,7 @@ suite =
                                     , "abcde"
                                     ]
                             in
-                            Puzzle.solve p words
+                            Puzzle.solveWords p words
                                 |> Expect.equal
                                     [ { length = 4
                                       , words = [ "aaaa", "aabc", "abcd" ]

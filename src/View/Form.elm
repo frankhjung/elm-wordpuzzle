@@ -1,5 +1,5 @@
 module View.Form exposing
-    ( Form
+    ( Form, initialForm
     , view
     )
 
@@ -9,7 +9,7 @@ Provides immediate input sanitisation and field-level error indicators.
 
 # Types
 
-@docs Form
+@docs Form, initialForm
 
 
 # View
@@ -18,7 +18,20 @@ Provides immediate input sanitisation and field-level error indicators.
 
 -}
 
-import Html exposing (Html, button, div, h2, input, label, small, span, text)
+import Html
+    exposing
+        ( Html
+        , button
+        , div
+        , fieldset
+        , h2
+        , input
+        , label
+        , legend
+        , small
+        , span
+        , text
+        )
 import Html.Attributes
     exposing
         ( attribute
@@ -47,6 +60,17 @@ type alias Form =
     , otherLetters : String
     , size : String
     , repeats : Bool
+    }
+
+
+{-| Default initial state for form inputs.
+-}
+initialForm : Form
+initialForm =
+    { mandatory = ""
+    , otherLetters = ""
+    , size = "4"
+    , repeats = True
     }
 
 
@@ -163,6 +187,7 @@ viewField fieldConfig attrs =
                 [ ( "form-input", True )
                 , ( "input-error", fieldConfig.invalid )
                 ]
+             , attribute "aria-label" fieldConfig.label
              , attribute "aria-invalid" ariaInvalid
              ]
                 ++ attrs
@@ -172,7 +197,8 @@ viewField fieldConfig attrs =
         ]
 
 
-{-| Renders the puzzle input form with field-level validation indicators.
+{-| Renders the puzzle input form with field-level validation indicators and
+game mode presets.
 -}
 view : Config msg -> Html msg
 view config =
@@ -182,80 +208,87 @@ view config =
         , novalidate True
         ]
         [ h2 [ class "form-title" ] [ text "Puzzle Input" ]
-        , div [ class "form-row" ]
-            [ viewField
-                { id = "input-mandatory"
-                , label = "Mandatory Letter"
-                , hint = "Single lowercase letter ('a' to 'z')."
-                , required = True
-                , invalid = List.any affectsMandatory config.errors
-                }
-                [ name "mandatory"
-                , type_ "text"
-                , value config.form.mandatory
-                , onInput config.onSetMandatory
-                , maxlength 1
-                , placeholder "e.g. m"
-                , autocomplete False
-                , attribute "autocapitalize" "none"
-                , attribute "spellcheck" "false"
-                , attribute "inputmode" "text"
-                , attribute "aria-required" "true"
-                ]
-            , viewField
-                { id = "input-other-letters"
-                , label = "Other Letters"
-                , hint = "3 to 8 additional unique letters to complete pool."
-                , required = True
-                , invalid = List.any affectsLetters config.errors
-                }
-                [ name "otherLetters"
-                , type_ "text"
-                , value config.form.otherLetters
-                , onInput config.onSetOtherLetters
-                , maxlength 8
-                , placeholder "e.g. itncao"
-                , autocomplete False
-                , attribute "autocapitalize" "none"
-                , attribute "spellcheck" "false"
-                , attribute "inputmode" "text"
-                , attribute "aria-required" "true"
-                ]
-            , viewField
-                { id = "input-size"
-                , label = "Minimum Word Size"
-                , hint = "Length between 4 and 9."
-                , required = False
-                , invalid = List.any affectsSize config.errors
-                }
-                [ name "size"
-                , type_ "number"
-                , value config.form.size
-                , onInput config.onSetSize
-                , attribute "min" "4"
-                , attribute "max" "9"
-                , attribute "inputmode" "numeric"
-                ]
+        , fieldset
+            [ class "form-fieldset"
+            , attribute "role" "group"
+            , attribute "aria-label" "Puzzle constraints"
             ]
-        , div [ class "form-group-checkbox" ]
-            [ label [ class "checkbox-label" ]
-                [ input
-                    [ id "toggle-repeats"
-                    , name "repeats"
-                    , type_ "checkbox"
-                    , class "checkbox-input"
-                    , checked config.form.repeats
-                    , onCheck config.onToggleRepeats
+            [ legend [ class "visually-hidden" ] [ text "Letter Constraints" ]
+            , div [ class "form-row" ]
+                [ viewField
+                    { id = "input-mandatory"
+                    , label = "Mandatory Letter"
+                    , hint = "Single lowercase letter ('a' to 'z')."
+                    , required = True
+                    , invalid = List.any affectsMandatory config.errors
+                    }
+                    [ name "mandatory"
+                    , type_ "text"
+                    , value config.form.mandatory
+                    , onInput config.onSetMandatory
+                    , maxlength 1
+                    , placeholder "e.g. m"
+                    , autocomplete False
+                    , attribute "autocapitalize" "none"
+                    , attribute "spellcheck" "false"
+                    , attribute "inputmode" "text"
+                    , attribute "aria-required" "true"
                     ]
-                    []
-                , span [ class "checkbox-text" ]
-                    [ text "Allow repeating letters?" ]
+                , viewField
+                    { id = "input-other-letters"
+                    , label = "Other Letters"
+                    , hint = "3 to 8 additional unique letters to complete pool."
+                    , required = True
+                    , invalid = List.any affectsLetters config.errors
+                    }
+                    [ name "otherLetters"
+                    , type_ "text"
+                    , value config.form.otherLetters
+                    , onInput config.onSetOtherLetters
+                    , maxlength 8
+                    , placeholder "e.g. itncao"
+                    , autocomplete False
+                    , attribute "autocapitalize" "none"
+                    , attribute "spellcheck" "false"
+                    , attribute "inputmode" "text"
+                    , attribute "aria-required" "true"
+                    ]
+                , viewField
+                    { id = "input-size"
+                    , label = "Minimum Word Size"
+                    , hint = "Length between 4 and 9."
+                    , required = False
+                    , invalid = List.any affectsSize config.errors
+                    }
+                    [ name "size"
+                    , type_ "number"
+                    , value config.form.size
+                    , onInput config.onSetSize
+                    , attribute "min" "4"
+                    , attribute "max" "9"
+                    , attribute "inputmode" "numeric"
+                    ]
                 ]
-            , small [ class "form-hint" ]
-                [ text
-                    ("Permits letters to be reused without length limit "
-                        ++ "(e.g. Spelling Bee)."
-                    )
+            , div [ class "form-group-checkbox" ]
+                [ label [ class "checkbox-label" ]
+                    [ input
+                        [ id "toggle-repeats"
+                        , name "repeats"
+                        , type_ "checkbox"
+                        , class "checkbox-input"
+                        , checked config.form.repeats
+                        , onCheck config.onToggleRepeats
+                        ]
+                        []
+                    , span [ class "checkbox-text" ]
+                        [ text "Allow repeating letters?" ]
+                    ]
+                , small [ class "form-hint" ]
+                    [ text
+                        ("Permits letters to be reused without length limit "
+                            ++ "(e.g. Spelling Bee)."
+                        )
+                    ]
                 ]
             ]
         , div [ class "form-actions" ]
