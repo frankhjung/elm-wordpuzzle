@@ -4,8 +4,9 @@ A client-side web application written in [Elm](https://elm-lang.org/) to solve
 constraint-based letter word puzzles:
 
 - [Nine Letter Word](http://nineletterword.tompaton.com/adevcrsoi/)
-- [Your Word Life](http://www.yourwiselife.com.au/games/9-letter-word/)
+- [NYT Spelling Bee](https://www.nytimes.com/puzzles/spelling-bee)
 - [Scientific American Spellements][spellements]
+- [Your Word Life](http://www.yourwiselife.com.au/games/9-letter-word/)
 
 [spellements]: https://www.scientificamerican.com/game/spellements/
 
