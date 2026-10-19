@@ -59,14 +59,18 @@ flowchart TD
 
 ### 3.2 Length-Partitioned 32-Bit Bitmask Indexing
 
-- **Decision:** Pre-compute 32-bit integer character bitmasks partitioned by
-  word length during dictionary ingestion (`Dict Int (List IndexedWord)`).
+- **Decision:** Pre-compute 32-bit integer character bitmasks and distinct
+  character popcounts partitioned by word length eagerly during dictionary
+  ingestion (`Dict Int (List IndexedWord)`).
 - **Rationale:** Evaluating 63,000 words against string contains or list set
-  lookups requires noticeable CPU time. By pre-partitioning words by length and
-  encoding letters `'a'` to `'z'` as bit positions `0` to `25` inside 32-bit
-  integers, candidate validation executes via primitive bitwise `AND` and `OR`
-  operations in single-digit nanoseconds. Candidates with lengths outside the
-  puzzle's minimum word size (or above 9 in exact multiset mode) are pruned
+  lookups requires noticeable CPU time. By pre-computing character bitmasks and
+  Hamming weights once during initial dictionary loading (`Dictionary.parse`),
+  the one-off ~50–100 ms initialisation cost eliminates all per-query string
+  traversal. During solving, candidate validation executes via primitive
+  bitwise `AND` and `OR` operations in single-digit nanoseconds, while Nine
+  Letter mode enforces single-use character rules in $O(1)$ via
+  `entry.popcount == String.length entry.word`. Candidates with lengths outside
+  the puzzle's minimum word size (or above 9 in exact multiset mode) are pruned
   instantly by skipping irrelevant dictionary length buckets.
 
 ### 3.3 Applicative Error Accumulation

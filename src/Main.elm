@@ -55,6 +55,12 @@ type alias Flags =
     Maybe String
 
 
+{-| Default initial application state snapshot.
+
+Initialises dictionary loader to `NotAsked`, form fields to their defaults,
+and solver outcome to `NotSolved`.
+
+-}
 initialModel : Model
 initialModel =
     { dictionary = Dictionary.NotAsked
@@ -63,7 +69,12 @@ initialModel =
     }
 
 
-{-| Initializes the TEA application, fetching dictionary if not preloaded.
+{-| Initialises the TEA application state and triggers asynchronous tasks.
+
+When flags provide preloaded dictionary text, parses the content immediately
+into the model without network latency. Otherwise, transitions dictionary
+status to `Loading` and dispatches `Dictionary.fetch`.
+
 -}
 init : Flags -> ( Model, Cmd Msg )
 init flags =
@@ -81,11 +92,31 @@ init flags =
             )
 
 
+{-| Helper for immutably updating form state within the TEA model.
+
+Applies a modifier function to the `form` record and pairs the updated model
+with `Cmd.none`.
+
+-}
 updateForm : (FormView.Form -> FormView.Form) -> Model -> ( Model, Cmd Msg )
 updateForm modify model =
     ( { model | form = modify model.form }, Cmd.none )
 
 
+{-| Sanitises raw user input to a lowercase alphabetic string of capped length.
+
+Converts input to lowercase, filters out non-lowercase ASCII characters (such
+as spaces, digits, and punctuation), and truncates to `limit` characters.
+
+Examples:
+
+    lowerLetters 1 "C" == "c"
+
+    lowerLetters 8 "a1b2c!" == "abc"
+
+    lowerLetters 4 "abcdefgh" == "abcd"
+
+-}
 lowerLetters : Int -> String -> String
 lowerLetters limit raw =
     String.toLower raw
@@ -93,6 +124,13 @@ lowerLetters limit raw =
         |> String.left limit
 
 
+{-| Validates form parameters and executes puzzle solving.
+
+Extracts the mandatory character and pool letters from form inputs, attempts to
+construct a validated `Puzzle`, and invokes `Puzzle.solve` against the
+dictionary on success, or collects validation errors on failure.
+
+-}
 solveForm : FormView.Form -> Dictionary.Dictionary -> ResultsView.Outcome
 solveForm form dict =
     let
@@ -116,6 +154,10 @@ solveForm form dict =
 
 
 {-| Pure state transition function responding to user input and HTTP events.
+
+Handles dictionary fetch responses, form field inputs, repeats toggling, retry
+actions, and solver form submissions.
+
 -}
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -174,11 +216,22 @@ update msg model =
                     ( model, Cmd.none )
 
 
+{-| Declares global TEA runtime event subscriptions.
+
+Returns `Sub.none` as the application requires no external event listeners.
+
+-}
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.none
 
 
+{-| Renders the top-level application shell and main view layout.
+
+Composes the header banner, dual-pane interactive layout (puzzle input form on
+the left, solver results on the right), and footer credits.
+
+-}
 view : Model -> Html Msg
 view model =
     let

@@ -71,6 +71,19 @@ type alias Status =
     RemoteData Http.Error WordIndex
 
 
+{-| Maps a lowercase ASCII character ('a' to 'z') to a single-bit mask.
+
+Returns 0 for non-lowercase ASCII characters or whitespace.
+
+Examples:
+
+    bitOf 'a' == 1
+
+    bitOf 'c' == 4
+
+    bitOf ' ' == 0
+
+-}
 bitOf : Char -> Int
 bitOf c =
     let
@@ -84,7 +97,17 @@ bitOf c =
         0
 
 
-{-| Calculates the 26-bit character mask for a string.
+{-| Calculates the cumulative 26-bit character set bitmask for a string.
+
+Folds across each character in the string, bitwise OR-ing its corresponding
+bit. Characters outside 'a' to 'z' contribute no set bits.
+
+Examples:
+
+    maskOf "cat" == Bitwise.or (bitOf 'c') (Bitwise.or (bitOf 'a') (bitOf 't'))
+
+    maskOf "" == 0
+
 -}
 maskOf : String -> Int
 maskOf str =
@@ -127,11 +150,37 @@ countBits n =
     Bitwise.and n5 0x3F
 
 
+{-| Determines whether a candidate word satisfies dictionary criteria.
+
+A valid candidate word must contain at least 4 characters and consist solely of
+lowercase ASCII alphabetical characters.
+
+Examples:
+
+    isValidWord "word" == True
+
+    isValidWord "cat" == False
+
+    isValidWord "Word" == False
+
+-}
 isValidWord : String -> Bool
 isValidWord word =
     String.length word >= 4 && String.all Char.isLower word
 
 
+{-| Pre-computes an indexed entry for a word string.
+
+Calculates the 32-bit character bitmask and the distinct letter popcount,
+caching them alongside the raw string for constant-time candidate pruning.
+
+Examples:
+
+    (indexWord "rust").popcount == 4
+
+    (indexWord "noon").popcount == 2
+
+-}
 indexWord : String -> IndexedWord
 indexWord word =
     let
@@ -144,6 +193,16 @@ indexWord word =
     }
 
 
+{-| Inserts a candidate word into a length-partitioned dictionary index.
+
+Computes the indexed entry and appends it to the bucket corresponding to the
+string length.
+
+Examples:
+
+    insertWord "rust" Dict.empty
+
+-}
 insertWord : String -> WordIndex -> WordIndex
 insertWord word idx =
     let
@@ -165,7 +224,18 @@ insertWord word idx =
         idx
 
 
-{-| Builds a length-partitioned index from a list of words.
+{-| Builds a length-partitioned index from a list of candidate words.
+
+Filters out words that fail `isValidWord` before populating the index dictionary
+by length.
+
+Examples:
+
+    fromWords [ "care", "race", "cat" ]
+        |> wordsOfLength 4
+        |> List.length
+        == 2
+
 -}
 fromWords : List String -> WordIndex
 fromWords wordList =
@@ -173,9 +243,18 @@ fromWords wordList =
         |> List.foldr insertWord Dict.empty
 
 
-{-| Parses raw dictionary text into candidate words, trimming whitespace,
-filtering out non-lowercase ASCII words and words shorter than 4 letters, and
-indexing into a length-partitioned `WordIndex`.
+{-| Parses raw dictionary text into candidate words.
+
+Splits content by line, trims surrounding whitespace, discards non-lowercase
+ASCII words or words under 4 letters, and partitions entries into a `WordIndex`.
+
+Examples:
+
+    parse "care\nrace\ncat\n"
+        |> wordsOfLength 4
+        |> List.map .word
+        == [ "care", "race" ]
+
 -}
 parse : String -> WordIndex
 parse content =
@@ -184,7 +263,16 @@ parse content =
         |> fromWords
 
 
-{-| Flattens an indexed dictionary into an ordered list of words.
+{-| Flattens an indexed dictionary into an ordered list of candidate words.
+
+Traverses length buckets in ascending key order and collects the words.
+
+Examples:
+
+    parse "care\nrace\n"
+        |> words
+        == [ "care", "race" ]
+
 -}
 words : WordIndex -> List String
 words idx =
@@ -192,7 +280,21 @@ words idx =
         |> List.concatMap (List.map .word)
 
 
-{-| Retrieves candidate words of a specific length from the index.
+{-| Retrieves candidate words of a specific length from the dictionary index.
+
+Returns an empty list when no candidate words of the requested length exist.
+
+Examples:
+
+    parse "care\nrace\n"
+        |> wordsOfLength 4
+        |> List.map .word
+        == [ "care", "race" ]
+
+    parse "care\nrace\n"
+        |> wordsOfLength 7
+        == []
+
 -}
 wordsOfLength : Int -> WordIndex -> List IndexedWord
 wordsOfLength len idx =
@@ -201,6 +303,10 @@ wordsOfLength len idx =
 
 
 {-| Asynchronously fetches the dictionary text file over HTTP.
+
+Dispatches an HTTP GET request to the `"dictionary"` endpoint and routes the
+completed response into the TEA message pipeline via the provided constructor.
+
 -}
 fetch : (Result Http.Error String -> msg) -> Cmd msg
 fetch toMsg =
@@ -211,6 +317,18 @@ fetch toMsg =
 
 
 {-| Converts an HTTP failure error into a user-facing explanation.
+
+Translates low-level network and HTTP status failures into descriptive
+Australian English text suitable for display in UI alert banners.
+
+Examples:
+
+    errorToString Http.NetworkError
+        == "Network connection failed while loading dictionary."
+
+    errorToString Http.Timeout
+        == "Network request timed out while loading dictionary."
+
 -}
 errorToString : Http.Error -> String
 errorToString error =

@@ -86,6 +86,13 @@ type ValidationError
 
 
 {-| Extracts minimum word size from a validated Puzzle.
+
+Examples:
+
+    mkPuzzle True 4 'a' "abcd"
+        |> Result.map size
+        == Ok 4
+
 -}
 size : Puzzle -> Int
 size (Puzzle p) =
@@ -93,6 +100,13 @@ size (Puzzle p) =
 
 
 {-| Extracts the mandatory letter from a validated Puzzle.
+
+Examples:
+
+    mkPuzzle True 4 'a' "abcd"
+        |> Result.map mandatory
+        == Ok 'a'
+
 -}
 mandatory : Puzzle -> Char
 mandatory (Puzzle p) =
@@ -100,6 +114,13 @@ mandatory (Puzzle p) =
 
 
 {-| Extracts the allowed letter pool from a validated Puzzle.
+
+Examples:
+
+    mkPuzzle True 4 'a' "abcd"
+        |> Result.map letters
+        == Ok "abcd"
+
 -}
 letters : Puzzle -> String
 letters (Puzzle p) =
@@ -107,17 +128,50 @@ letters (Puzzle p) =
 
 
 {-| Returns whether repeating letters are permitted in candidate words.
+
+Examples:
+
+    mkPuzzle True 4 'a' "abcd"
+        |> Result.map repeats
+        == Ok True
+
 -}
 repeats : Puzzle -> Bool
 repeats (Puzzle p) =
     p.repeats
 
 
+{-| Asserts whether an integer falls within allowed puzzle size bounds.
+
+Allowed word length ranges from 4 (`minWordSize`) to 9 (`maxPoolSize`).
+
+Examples:
+
+    inSizeRange 4 == True
+
+    inSizeRange 9 == True
+
+    inSizeRange 3 == False
+
+    inSizeRange 10 == False
+
+-}
 inSizeRange : Int -> Bool
 inSizeRange s =
     s >= minWordSize && s <= maxPoolSize
 
 
+{-| Verifies that all characters in a string are pairwise distinct.
+
+Examples:
+
+    isUnique "abcd" == True
+
+    isUnique "aabc" == False
+
+    isUnique "" == True
+
+-}
 isUnique : String -> Bool
 isUnique str =
     let
@@ -127,6 +181,20 @@ isUnique str =
     List.length chars == Set.size (Set.fromList chars)
 
 
+{-| Validates whether a letter pool meets domain requirements.
+
+A valid pool must contain between 4 and 9 lowercase ASCII letters with no
+duplicate characters.
+
+Examples:
+
+    isLetters "adevrsoi" == True
+
+    isLetters "abc" == False
+
+    isLetters "aabbccdd" == False
+
+-}
 isLetters : String -> Bool
 isLetters ls =
     inSizeRange (String.length ls)
@@ -135,6 +203,15 @@ isLetters ls =
 
 
 {-| Validates integer minimum word size between 4 and 9 inclusive.
+
+Examples:
+
+    validateSize 4 == Ok 4
+
+    validateSize 9 == Ok 9
+
+    validateSize 3 == Err [ InvalidSize ( minWordSize, maxPoolSize ) 3 ]
+
 -}
 validateSize : Int -> Validation ValidationError Int
 validateSize s =
@@ -145,6 +222,17 @@ validateSize s =
         Validation.fail (InvalidSize ( minWordSize, maxPoolSize ) s)
 
 
+{-| Parses a raw string input into an integer and validates word size bounds.
+
+Examples:
+
+    validateSizeString "5" == Ok 5
+
+    validateSizeString "abc" == Err [ SizeNotANumber "abc" ]
+
+    validateSizeString "12" == Err [ InvalidSize ( 4, 9 ) 12 ]
+
+-}
 validateSizeString : String -> Validation ValidationError Int
 validateSizeString s =
     case String.toInt s of
@@ -155,6 +243,19 @@ validateSizeString s =
             Validation.fail (SizeNotANumber s)
 
 
+{-| Validates that the mandatory letter is present and is a lowercase letter.
+
+A space character indicates a missing mandatory letter input.
+
+Examples:
+
+    validateMandatory 'c' == Ok 'c'
+
+    validateMandatory ' ' == Err [ MissingMandatory ]
+
+    validateMandatory 'A' == Err [ InvalidMandatory 'A' ]
+
+-}
 validateMandatory : Char -> Validation ValidationError Char
 validateMandatory m =
     if m == ' ' then
@@ -167,6 +268,19 @@ validateMandatory m =
         Validation.fail (InvalidMandatory m)
 
 
+{-| Validates that the mandatory letter is present within the letter pool.
+
+A blank mandatory letter is ignored by this check, deferring to
+`validateMandatory`.
+
+Examples:
+
+    validateMandatoryInLetters 'c' "care" == Ok ()
+
+    validateMandatoryInLetters 'z' "care"
+        == Err [ MandatoryNotInLetters 'z' "care" ]
+
+-}
 validateMandatoryInLetters : Char -> String -> Validation ValidationError ()
 validateMandatoryInLetters m ls =
     if m == ' ' then
@@ -180,6 +294,15 @@ validateMandatoryInLetters m ls =
 
 
 {-| Validates that letter pool contains 4 to 9 unique lowercase letters.
+
+Examples:
+
+    validateLetters "care" == Ok "care"
+
+    validateLetters "" == Err [ InvalidLetters "empty letters" ]
+
+    validateLetters "carer" == Err [ InvalidLetters "carer" ]
+
 -}
 validateLetters : String -> Validation ValidationError String
 validateLetters ls =
@@ -193,6 +316,12 @@ validateLetters ls =
         Validation.fail (InvalidLetters ls)
 
 
+{-| Assembles a validated Puzzle from its constituent validated fields.
+
+Applies applicative validation combinators to collect all field-level and
+cross-field errors simultaneously.
+
+-}
 assemble :
     Bool
     -> Validation ValidationError Int
@@ -219,6 +348,16 @@ assemble r validSize m ls =
 
 
 {-| Validates puzzle parameters given an integer size constraint.
+
+Constructs a `Puzzle` when all parameters satisfy domain invariants, or returns
+an accumulated list of validation errors.
+
+Examples:
+
+    mkPuzzle True 4 'c' "care"
+        |> Result.map mandatory
+        == Ok 'c'
+
 -}
 mkPuzzle : Bool -> Int -> Char -> String -> Validation ValidationError Puzzle
 mkPuzzle r s =
@@ -226,6 +365,15 @@ mkPuzzle r s =
 
 
 {-| Validates puzzle parameters given a string size input from a form.
+
+Parses string input for minimum word size before assembling the puzzle.
+
+Examples:
+
+    mkPuzzleFromString True "4" 'c' "care"
+        |> Result.map mandatory
+        == Ok 'c'
+
 -}
 mkPuzzleFromString :
     Bool
@@ -237,6 +385,19 @@ mkPuzzleFromString r s =
     assemble r (validateSizeString s)
 
 
+{-| Converts a lowercase character ('a' to 'z') to a single-bit 32-bit mask.
+
+Returns 0 for non-lowercase characters or characters outside the ASCII range.
+
+Examples:
+
+    bitOf 'a' == 1
+
+    bitOf 'b' == 2
+
+    bitOf ' ' == 0
+
+-}
 bitOf : Char -> Int
 bitOf c =
     let
@@ -250,11 +411,34 @@ bitOf c =
         0
 
 
+{-| Calculates the cumulative 26-bit character set bitmask for a string.
+
+Folds over characters in the pool, bitwise OR-ing their single-bit masks.
+
+Examples:
+
+    maskOf "ab" == 3
+
+    maskOf "" == 0
+
+-}
 maskOf : String -> Int
 maskOf pool =
     String.foldl (\c mask -> Bitwise.or mask (bitOf c)) 0 pool
 
 
+{-| Checks if a word can be formed from a pool mask without repeated letters.
+
+Traverses word characters recursively, ensuring every character belongs to the
+pool bitmask and has not yet been consumed.
+
+Examples:
+
+    nineLettersWithMask (maskOf "cat") "act" == True
+
+    nineLettersWithMask (maskOf "cat") "tact" == False
+
+-}
 nineLettersWithMask : Int -> String -> Bool
 nineLettersWithMask poolMask word =
     let
@@ -284,12 +468,31 @@ nineLettersWithMask poolMask word =
 
 
 {-| Checks if word can be formed from pool without repeating any letter.
+
+Operates in Nine-Letter Target mode where each letter in the pool may only
+appear at most once.
+
+Examples:
+
+    nineLetters "target" "great" == True
+
+    nineLetters "target" "targett" == False
+
 -}
 nineLetters : String -> String -> Bool
 nineLetters pool word =
     nineLettersWithMask (maskOf pool) word
 
 
+{-| Checks if every character in word exists in poolMask, allowing repeats.
+
+Examples:
+
+    spellingBeeWithMask (maskOf "act") "tact" == True
+
+    spellingBeeWithMask (maskOf "act") "actor" == False
+
+-}
 spellingBeeWithMask : Int -> String -> Bool
 spellingBeeWithMask poolMask word =
     let
@@ -301,6 +504,16 @@ spellingBeeWithMask poolMask word =
 
 {-| Checks if word can be formed using only letters from the pool, allowing
 repeats.
+
+Operates in Spelling Bee mode where candidate words can reuse pool letters
+indefinitely.
+
+Examples:
+
+    spellingBee "act" "tact" == True
+
+    spellingBee "act" "actor" == False
+
 -}
 spellingBee : String -> String -> Bool
 spellingBee pool word =
@@ -308,6 +521,19 @@ spellingBee pool word =
 
 
 {-| Evaluates whether a candidate word satisfies all puzzle rules.
+
+Enforces minimum length constraints, letter pool membership, mandatory letter
+presence, and repeat restrictions.
+
+Examples:
+
+    case mkPuzzle True 4 'c' "care" of
+        Ok puzzle ->
+            accepts puzzle "race" == True
+
+        Err _ ->
+            False
+
 -}
 accepts : Puzzle -> String -> Bool
 accepts (Puzzle p) word =
@@ -333,6 +559,17 @@ puzzle criteria, grouped by descending length and sorted alphabetically.
 
 Evaluates Spelling Bee queries in O(1) bitwise operations per candidate and
 applies a two-tier filter for Nine-Letter Target mode.
+
+Examples:
+
+    case mkPuzzle True 4 'c' "care" of
+        Ok puzzle ->
+            solve puzzle (Dictionary.fromWords [ "care", "race" ])
+                |> List.map .length
+                == [ 4 ]
+
+        Err _ ->
+            []
 
 -}
 solve : Puzzle -> WordIndex -> List WordGroup
@@ -394,6 +631,18 @@ solve (Puzzle p) index =
 
 {-| Finds all matching words from a flat list of strings.
 Useful for property testing and CLI parity verification.
+
+Examples:
+
+    case mkPuzzle True 4 'c' "care" of
+        Ok puzzle ->
+            solveWords puzzle [ "care", "race", "cat" ]
+                |> List.map .length
+                == [ 4 ]
+
+        Err _ ->
+            []
+
 -}
 solveWords : Puzzle -> List String -> List WordGroup
 solveWords puzzle rawWords =
@@ -401,6 +650,15 @@ solveWords puzzle rawWords =
 
 
 {-| Converts domain validation errors into descriptive user feedback.
+
+Examples:
+
+    errorToString MissingMandatory
+        == "mandatory letter is required ('a' to 'z' only)"
+
+    errorToString (InvalidLetters "abc")
+        == "expected 4-9 unique lowercase letters, got abc"
+
 -}
 errorToString : ValidationError -> String
 errorToString err =

@@ -75,10 +75,10 @@ with Terser, and copies all static assets.
 
 ## Testing and Verification
 
-The test suite consists of 51 automated tests, including a port of the Haskell
-test suite, state machine tests, dictionary index tests, property-based fuzz
-tests, and differential parity tests comparing the Elm solver directly against
-the compiled Haskell binary:
+The test suite consists of 51 automated unit and property fuzz tests (including
+a port of the Haskell test suite, state machine tests, dictionary index tests,
+and invariant property tests), alongside differential parity tests comparing the
+Elm solver directly against the compiled Haskell binary:
 
 ```bash
 # Run unit and property fuzz tests
@@ -113,13 +113,14 @@ Run `make help` to inspect available targets:
 | `run`       | Run local HTTP development server              |
 | `parity`    | Run parity comparison against Haskell binary   |
 | `ci`        | Run full continuous integration pipeline       |
-| `clean`     | Remove build artifacts and compiler caches     |
-| `distclean` | Remove all build artifacts and node_modules    |
+| `clean`     | Remove build artefacts and compiler caches     |
+| `distclean` | Remove all build artefacts and node_modules    |
+| `help`      | Display available Makefile targets             |
 
 ## Project Documentation
 
 - [Design Documentation](docs/design.md)
-- [Elm Quickstart Guide](docs/elm-quick-start.md)
+- [Elm Quick Start Guide](docs/elm-quick-start.md)
 - [Hamming Weight / Popcount Notes](docs/hamming-weight.md)
 - [Requirements Documentation (Baseline)](docs/REQ-001-word-puzzle-solver.md)
 - [Modernisation Requests (REQ-002)](docs/REQ-002-refactor-and-modernise.md)

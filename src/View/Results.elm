@@ -43,6 +43,9 @@ type Outcome
 
 
 {-| Renders the dictionary status or solved word groups.
+
+Dispatches between dictionary loading states and solver outcome states.
+
 -}
 view : Config msg -> Html msg
 view config =
@@ -62,6 +65,8 @@ view config =
         ]
 
 
+{-| Renders status placeholder card before dictionary loading has commenced.
+-}
 viewDictionaryNotAsked : Html msg
 viewDictionaryNotAsked =
     div [ class "status-card status-empty" ]
@@ -71,6 +76,8 @@ viewDictionaryNotAsked =
         ]
 
 
+{-| Renders an animated loading indicator card while downloading dictionary.
+-}
 viewDictionaryLoading : Html msg
 viewDictionaryLoading =
     div [ class "status-card status-loading" ]
@@ -83,6 +90,8 @@ viewDictionaryLoading =
         ]
 
 
+{-| Renders an error alert banner with a retry action button.
+-}
 viewDictionaryError : Http.Error -> msg -> Html msg
 viewDictionaryError error onRetry =
     div [ class "alert alert-error alert-banner", attribute "role" "alert" ]
@@ -101,6 +110,8 @@ viewDictionaryError error onRetry =
         ]
 
 
+{-| Renders solver outcome states: instructions, errors, or matched words.
+-}
 viewOutcome : Outcome -> Html msg
 viewOutcome outcome =
     case outcome of
@@ -156,6 +167,8 @@ viewOutcome outcome =
                     ]
 
 
+{-| Renders the list of word group cards for all matched word lengths.
+-}
 renderGroups : Char -> List WordGroup -> Html msg
 renderGroups mand groups =
     let
@@ -166,11 +179,15 @@ renderGroups mand groups =
         (List.map (viewWordGroupCard mandStr) groups)
 
 
+{-| Lazily evaluates and renders an individual word group card.
+-}
 viewWordGroupCard : String -> WordGroup -> Html msg
 viewWordGroupCard mandStr group =
     lazy2 renderWordGroup mandStr group
 
 
+{-| Renders a card for a word length group containing word chip badges.
+-}
 renderWordGroup : String -> WordGroup -> Html msg
 renderWordGroup mandStr group =
     div [ class "word-group-card" ]
@@ -187,6 +204,8 @@ renderWordGroup mandStr group =
         ]
 
 
+{-| Renders a word chip badge, highlighting mandatory letters in bold teal.
+-}
 renderWordChip : String -> String -> Html msg
 renderWordChip mandStr word =
     span [ class "word-chip" ]

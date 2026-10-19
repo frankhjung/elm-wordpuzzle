@@ -64,6 +64,15 @@ type alias Form =
 
 
 {-| Default initial state for form inputs.
+
+Pre-populates size to `"4"` and repeats to `True` (Spelling Bee mode).
+
+Examples:
+
+    initialForm.size == "4"
+
+    initialForm.repeats == True
+
 -}
 initialForm : Form
 initialForm =
@@ -86,6 +95,15 @@ type alias Config msg =
     }
 
 
+{-| Identifies whether a validation error pertains to the mandatory letter.
+
+Examples:
+
+    affectsMandatory MissingMandatory == True
+
+    affectsMandatory (InvalidLetters "abc") == False
+
+-}
 affectsMandatory : ValidationError -> Bool
 affectsMandatory err =
     case err of
@@ -108,6 +126,15 @@ affectsMandatory err =
             False
 
 
+{-| Identifies whether a validation error pertains to the letter pool field.
+
+Examples:
+
+    affectsLetters (InvalidLetters "abc") == True
+
+    affectsLetters MissingMandatory == False
+
+-}
 affectsLetters : ValidationError -> Bool
 affectsLetters err =
     case err of
@@ -130,6 +157,17 @@ affectsLetters err =
             False
 
 
+{-| Identifies whether a validation error pertains to the word size field.
+
+Examples:
+
+    affectsSize (InvalidSize ( 4, 9 ) 2) == True
+
+    affectsSize (SizeNotANumber "abc") == True
+
+    affectsSize MissingMandatory == False
+
+-}
 affectsSize : ValidationError -> Bool
 affectsSize err =
     case err of
@@ -152,6 +190,12 @@ affectsSize err =
             False
 
 
+{-| Renders an accessible form input control group.
+
+Includes form label, optional required asterisk indicator, input element with
+dynamic error styling, ARIA validation attributes, and instructional hint text.
+
+-}
 viewField :
     { id : String
     , label : String
@@ -199,6 +243,10 @@ viewField fieldConfig attrs =
 
 {-| Renders the puzzle input form with field-level validation indicators and
 game mode presets.
+
+Presents inputs for mandatory letter, pool letters, minimum word length, and the
+repeat letters checkbox, with loading state feedback during dictionary fetch.
+
 -}
 view : Config msg -> Html msg
 view config =
@@ -237,7 +285,8 @@ view config =
                 , viewField
                     { id = "input-other-letters"
                     , label = "Other Letters"
-                    , hint = "3 to 8 additional unique letters to complete pool."
+                    , hint =
+                        "3 to 8 additional unique letters to complete pool."
                     , required = True
                     , invalid = List.any affectsLetters config.errors
                     }

@@ -131,12 +131,13 @@ introduce unnecessary CPU overhead and garbage collection pressure.
 
 1. During dictionary ingestion in `Dictionary.elm`, pre-compute a
    length-partitioned index mapping word length to candidate words with their
-   32-bit integer bitmasks:
+   32-bit integer bitmasks and distinct letter popcounts:
 
    ```elm
    type alias IndexedWord =
        { word : String
        , mask : Int
+       , popcount : Int
        }
 
    type alias WordIndex =
@@ -147,7 +148,21 @@ introduce unnecessary CPU overhead and garbage collection pressure.
 
    $$B_w = \bigvee_{c \in W} 2^{\text{Char.toCode}(c) - 97}$$
 
-3. **Spelling Bee Solving:** Skip all buckets where `length < puzzle.size`. For
+3. Calculate the distinct letter count using a constant-time 32-bit parallel
+   popcount (Hamming weight) routine (`countBits`) across five bitwise folding
+   stages.
+
+> [!NOTE]
+> **Eager Ingestion Indexing:**
+> Bitmask generation (`maskOf`) and Hamming weight calculation (`countBits`)
+> are executed eagerly for every candidate word when `Dictionary.parse` runs
+> during initial dictionary loading. This absorbs a one-off initialisation
+> cost of approximately 50–100 ms across the 63,000-word lexicon during
+> application boot. In return, all subsequent user solve requests bypass string
+> parsing entirely and evaluate candidate validity via instant $O(1)$ bitwise
+> operations.
+
+4. **Spelling Bee Solving:** Skip all buckets where `length < puzzle.size`. For
    surviving buckets, evaluate validity in $O(1)$ bitwise operations:
 
    $$
@@ -155,9 +170,10 @@ introduce unnecessary CPU overhead and garbage collection pressure.
    (B_w \ \& \ 2^{\text{Char.toCode}(c_{\text{centre}}) - 97} \neq 0)
    $$
 
-4. **NineLetter Solving:** Skip buckets where `length < puzzle.size` or
-   `length > 9`. Use the bitmask as an initial broad-phase filter, then verify
-   character multiplicity against pool frequency for surviving candidates.
+5. **NineLetter Solving:** Skip buckets where `length < puzzle.size` or
+   `length > 9`. Evaluate pool membership and mandatory letter presence via
+   bitwise masks, and enforce the single-use character invariant in $O(1)$ by
+   asserting `entry.popcount == String.length entry.word`.
 
 #### CR-03: Acceptance Criteria
 
